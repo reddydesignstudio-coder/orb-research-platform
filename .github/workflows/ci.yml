@@ -22,6 +22,34 @@ jobs:
       - run: node --version
       - run: npm run check
 
+  database:
+    name: Database schema tests (throwaway PostgreSQL 17)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # Credentials of the throwaway test container only — not the real database.
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+      - run: npm run test:db
+
   supabase:
     name: Supabase connectivity (public URL + publishable key)
     runs-on: ubuntu-latest
