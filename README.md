@@ -1,130 +1,44 @@
-# ORB Research & Backtesting Platform
+# tests/
 
-A web-based **historical research and backtesting** platform for Opening Range Breakout (ORB)
-strategies across US stocks, forex, crypto and gold (XAUUSD).
-
-This is a research tool. It is not a live trading application, and historical results are
-never presented as a guarantee of future performance.
-
-> **Status:** Phase 0 — Foundation complete. The app shell runs locally; no market data,
-> database or calculations exist yet. See [`TASKS.md`](TASKS.md) for current progress.
-
----
-
-## Architecture (summary)
-
-```text
-Browser → GitHub Pages frontend → Supabase Edge Functions → Market Data Provider
-                                          │
-                                          └→ Supabase PostgreSQL
-```
-
-Provider API keys and the Supabase service-role key live **only** in Supabase Edge Function
-secrets. They never appear in this repository, the frontend, or the browser.
-Full detail: [`ARCHITECTURE.md`](ARCHITECTURE.md).
-
----
-
-## Specification (source of truth)
-
-The specification files live at the repository root because `CLAUDE.md` and
-`INSTRUCTIONS.md` reference them by bare file name. Read them in this order:
-
-| # | File | Contents |
-|---|------|----------|
-| 1 | [`CLAUDE.md`](CLAUDE.md) | Controller: how work is done in this repo |
-| 2 | [`PROJECT.md`](PROJECT.md) | Purpose, objectives, universe, sessions, final product |
-| 3 | [`INSTRUCTIONS.md`](INSTRUCTIONS.md) | Implementation style, testing, completion standard |
-| 4 | [`RULES.md`](RULES.md) | Non-negotiable data, timezone, research and security rules |
-| 5 | [`ARCHITECTURE.md`](ARCHITECTURE.md) | System components and data flows |
-| 6 | [`DATABASE.md`](DATABASE.md) | Tables, uniqueness, indexes |
-| 7 | [`ORB_SPEC.md`](ORB_SPEC.md) | ORB methodology, entry, SL/TP, time exit, ambiguous candles |
-| 8 | [`RELATIONSHIPS.md`](RELATIONSHIPS.md) | Cross-symbol association analysis |
-| 9 | [`PROVIDERS.md`](PROVIDERS.md) | Market-data providers — **provisional**, see `docs/SPEC_REVIEW.md` |
-| 10 | [`ROADMAP.md`](ROADMAP.md) | Phases |
-| 11 | [`TASKS.md`](TASKS.md) | Ordered task queue and status |
-
-Supporting engineering docs live in [`docs/`](docs/README.md).
-
----
-
-## Repository layout
-
-```text
-.
-├── CLAUDE.md, PROJECT.md, …, TASKS.md   Specification (root, see above)
-├── README.md                            This file
-├── CHANGELOG.md                         What changed, per task
-├── docs/                                Engineering notes: spec review, decisions
-├── package.json                         npm scripts only — no dependencies
-├── frontend/                            GitHub Pages site (served as-is, no build)
-│   ├── index.html
-│   ├── css/app.css
-│   └── js/                              main.js, router, routes, config guard, views/
-├── supabase/
-│   ├── config.toml                      Supabase CLI project config
-│   ├── migrations/                      PostgreSQL schema migrations (applied by CI)
-│   └── functions/                       Supabase Edge Functions      (TASK 007+)
-├── tests/                               node:test unit tests; tests/db/ SQL schema tests
-└── scripts/
-    ├── serve.mjs                        Local dev server
-    ├── test-db.sh                       Database tests on a throwaway database
-    ├── check-supabase.mjs               Supabase connectivity check
-    └── verify-foundation.sh             Structure + secret-hygiene check
-```
-
-Each folder's purpose is described in [`docs/README.md`](docs/README.md).
-
----
-
-## Setup
-
-Requirements: **Node.js 22 or newer** (`node -v`). Nothing else — there are no npm packages
-to install (see `docs/DECISIONS.md` D-003). On Windows, run the commands from Git Bash so
-`npm run verify` (a shell script) works.
+Unit tests using Node's built-in test runner (`node:test`, `node:assert`). No packages.
 
 ```bash
-npm run dev      # start the site at http://127.0.0.1:5173
-npm test         # unit tests (router, config guard, dev server, frontend security)
-npm run verify   # structure + credential scan
-npm run check    # verify + test — run before every commit
-npm run test:db  # database schema tests (needs PostgreSQL + PGHOST/PGUSER/PGPASSWORD)
+npm test
 ```
 
-`npm run dev` uses port 5173; set another with `PORT=8080 npm run dev`.
+Files must be named `*.test.js`.
 
-`npm run check:supabase` confirms the Supabase project in `app-config.js` is reachable and
-accepts the publishable key (needs network access to `*.supabase.co`).
+| File | Covers |
+|------|--------|
+| `router.test.js` | Hash → route resolution, unknown routes, links |
+| `routes.test.js` | All seven PROJECT.md §16 sections exist, unique ids/paths, task references |
+| `config.test.js` | Public config guard: rejects service-role JWT, `sb_secret_` keys, extra fields, http URLs |
+| `health.test.js` | Database status: online / paused / key rejected / offline, no request when unconfigured |
+| `serve.test.js` | Dev server: MIME types, 404/405, path-traversal protection |
+| `check-db-url.test.js` | SUPABASE_DB_URL format check: placeholder, brackets, whitespace, special chars, wrong host/port/user — without printing the password |
+| `migrations.test.js` | Migration names, no unapproved destructive SQL, RLS on every new table |
+| `frontend-security.test.js` | No secrets, provider calls, browser storage or third-party scripts in `frontend/`; CSP present |
 
-### GitHub
+## Database tests — `npm run test:db`
 
-* **CI** (`.github/workflows/ci.yml`): `npm run check` and the Supabase connectivity check on
-  every push and pull request.
-* **Database** (`.github/workflows/database.yml`): when migrations change on `main`, runs
-  the unit and database tests, a dry run, then applies them to Supabase. Needs the
-  `SUPABASE_DB_URL` repository secret (Settings → Secrets and variables → Actions) — the
-  Supabase *Session pooler* connection string. The password lives only in GitHub Secrets.
-* **Pages** (`.github/workflows/pages.yml`): after checks pass, `frontend/` is published to
-  GitHub Pages on every push to `main`. One-time setup: Settings → Pages → Source:
-  **GitHub Actions**.
+`tests/db/*.test.sql` (with shared helpers in `tests/db/_helpers.sql`) run by `scripts/test-db.sh` on a fresh throwaway database with all
+migrations applied (`00_supabase_roles.sql` recreates Supabase's roles for plain PostgreSQL).
+`05_universe.test.sql` checks the seeded 15-symbol universe; `10_schema.test.sql` covers constraints, duplicates, DST-aware `timestamp_et`, candle immutability, the
+one-trade-per-session rule, the ambiguous-candle rule, generated relationship columns, and
+RLS / privileges as `anon`, `authenticated` and `service_role`.
 
-### Configuration
+Needs a PostgreSQL server and `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD`. CI provides one.
 
-| What | Where | Committed? |
-|------|-------|-----------|
-| Supabase URL + anon/publishable key (public) | `frontend/js/app-config.js` | Yes — public by design |
-| Provider API keys (Twelve Data, …) | Supabase Edge Function secrets; locally `supabase/functions/.env` (template: `.env.example`) | **Never** |
-| Supabase service-role / secret key | Supabase only | **Never** |
+Test keys are assembled at runtime so no credential-shaped string is committed.
 
-The app validates `app-config.js` at start-up and refuses to connect if it finds a
-service-role key, a secret key or any extra field.
+Required coverage over the project (CLAUDE.md — TESTING, INSTRUCTIONS.md §6), added by later
+tasks:
 
----
-
-## Verifying the repository
-
-`npm run check` must pass. `verify-foundation.sh` checks that every specification file and
-folder exists, that `.gitignore` excludes secret files, and that no file looks like it contains
-a credential. The unit tests check routing, the configuration guard, the dev server
-(including path-traversal protection) and that the frontend has no secrets, direct provider
-calls, browser-storage databases or third-party scripts.
+* database constraints
+* timezone conversion and DST
+* session boundaries (09:30–10:59 ET, 90 candles)
+* candle normalization and validation
+* importer, checkpoints and duplicates
+* ORB calculation and breakout detection
+* TP, SL, time exit and ambiguous candles
+* relationship analysis

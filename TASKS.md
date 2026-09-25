@@ -69,7 +69,7 @@ Add constraints and indexes.
 Status:
 
 ```text
-IMPLEMENTED — awaiting first production apply
+COMPLETE — 2026-09-25
 ```
 
 Delivered: `supabase/migrations/20260925120000_initial_schema.sql` (9 tables, constraints,
@@ -80,8 +80,9 @@ Verified: all database checks pass on PostgreSQL 16 locally; `supabase db push` 
 2.117.0) tested against a stand-in database — dry run, apply, and idempotent re-run.
 CI repeats the tests on PostgreSQL 17 (Supabase's version).
 
-To mark COMPLETE: owner adds the `SUPABASE_DB_URL` secret and "Deploy database migrations"
-succeeds against the real project.
+Production: "Deploy database migrations" succeeded on 2026-09-25. Verified live through the
+Supabase API with the publishable key: all 9 tables exist (an unknown table returns 404),
+anonymous reads return no rows (RLS) and an anonymous insert is rejected (42501).
 
 ---
 
@@ -92,8 +93,14 @@ Create initial 15-symbol configurable seed universe.
 Status:
 
 ```text
-TODO
+IMPLEMENTED — awaiting production apply
 ```
+
+Delivered: `supabase/migrations/20260925150000_seed_initial_universe.sql` (approved list, D-014),
+`tests/db/05_universe.test.sql` (12 checks).
+
+Verified: all 87 database checks pass locally; incremental `supabase db push` rehearsal
+applied only the new migration (8 US / 4 forex / 2 crypto / 1 gold).
 
 ---
 

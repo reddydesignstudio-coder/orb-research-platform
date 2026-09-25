@@ -1,5 +1,18 @@
 # CHANGELOG
 
+## TASK 004 — Seed Symbols — 2026-09-25
+
+* `supabase/migrations/20260925150000_seed_initial_universe.sql` — 15 approved symbols (D-014),
+  insert-if-missing; US sessions 09:30 → 11:00 ET; non-US sessions left undefined (SR-09).
+* `tests/db/05_universe.test.sql` (12 checks, incl. idempotency and configurability);
+  shared helpers moved to `tests/db/_helpers.sql`.
+* `scripts/test-db.sh` reports clearly when it cannot connect to PostgreSQL.
+
+## Deployment diagnostics — 2026-09-25
+
+* `scripts/check-db-url.mjs` + tests: checks the `SUPABASE_DB_URL` secret's format in the
+  database workflow before connecting, without printing the password.
+
 ## TASK 003 — Supabase Schema — 2026-09-25
 
 Added
