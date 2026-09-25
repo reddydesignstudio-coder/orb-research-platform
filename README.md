@@ -68,13 +68,17 @@ Supporting engineering docs live in [`docs/`](docs/README.md).
 │       ├── _shared/providers/           MarketDataProvider layer     (TASK 005)
 │       ├── _shared/adapters/twelve_data/ Twelve Data adapter         (TASK 006)
 │       ├── _shared/market-data/          market-data handler + config (TASK 007)
-│       └── market-data/                  market-data Edge Function    (TASK 007)
+│       ├── _shared/server/               shared server helpers        (TASK 008)
+│       ├── _shared/importer/             import job engine            (TASK 008)
+│       ├── market-data/                  market-data Edge Function    (TASK 007)
+│       └── importer/                     importer Edge Function       (TASK 008)
 ├── tests/                               node:test unit tests; tests/db/ SQL schema tests
 └── scripts/
     ├── serve.mjs                        Local dev server
     ├── test-db.sh                       Database tests on a throwaway database
     ├── check-supabase.mjs               Supabase connectivity check
     ├── live-check.mjs                   Provider live check (manual workflow)
+    ├── import-run.mjs                   Import run (manual workflow)
     └── verify-foundation.sh             Structure + secret-hygiene check
 ```
 
@@ -115,13 +119,16 @@ puts every file in its correct folder, removes stray files, and starts the deplo
   the unit and database tests, a dry run, then applies them to Supabase. Needs the
   `SUPABASE_DB_URL` repository secret (Settings → Secrets and variables → Actions) — the
   Supabase *Session pooler* connection string. The password lives only in GitHub Secrets.
-* **Edge Functions** (`.github/workflows/functions.yml`): after `npm run check`, deploys the
-  `market-data` function. Needs the `SUPABASE_ACCESS_TOKEN` repository secret (a Supabase
+* **Edge Functions** (`.github/workflows/functions.yml`): after `npm run check`, deploys every
+  function in `supabase/functions` (`market-data`, `importer`). Needs the `SUPABASE_ACCESS_TOKEN` repository secret (a Supabase
   personal access token). The Twelve Data key is set only in Supabase (Edge Functions →
   Secrets → `TWELVE_DATA_API_KEY`), never in GitHub.
 * **Provider live check** (`.github/workflows/live-check.yml`, manual): 5 paced calls to the
   deployed function; report in the run summary. Needs the `SUPABASE_SECRET_KEY` repository
   secret (a Supabase secret key).
+* **Import run** (`.github/workflows/import-run.yml`, manual): one import run for a symbol and
+  UTC range through the `importer` function; report in the run summary. Uses
+  `SUPABASE_SECRET_KEY`. Each provider request costs 1 Twelve Data credit.
 * **Pages** (`.github/workflows/pages.yml`): after checks pass, `frontend/` is published to
   GitHub Pages on every push to `main`. One-time setup: Settings → Pages → Source:
   **GitHub Actions**.

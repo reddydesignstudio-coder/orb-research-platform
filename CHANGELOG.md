@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## TASK 008 — Import Job Engine — 2026-09-25 (awaiting live import)
+
+Added
+
+* `supabase/functions/importer/` and `supabase/functions/_shared/importer/` (engine, validation,
+  store, handler); `supabase/functions/_shared/server/` (secret-key guard, PostgREST client,
+  symbol + provider loading) — `market-data` now uses it too, behaviour unchanged.
+* `.github/workflows/import-run.yml` + `scripts/import-run.mjs` (manual import run);
+  `functions.yml` now deploys every function.
+* Tests: `tests/importer/`, `tests/import-run.test.js`, `tests/db/20_importer.test.sql`.
+* Decision D-022.
+
 ## TASK 007 — Supabase Market Data Function — 2026-09-25
 
 Added

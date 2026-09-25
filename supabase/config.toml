@@ -421,3 +421,9 @@ enabled = true
 enabled = true
 verify_jwt = false
 entrypoint = "./functions/market-data/index.ts"
+
+# importer (TASK 008): server-to-server only, same access rule as market-data (D-020).
+[functions.importer]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/importer/index.ts"

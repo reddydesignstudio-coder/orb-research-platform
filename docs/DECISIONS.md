@@ -287,3 +287,31 @@ timezone and deployment decisions require owner approval (INSTRUCTIONS.md §4).
   no out-of-range bar is returned. Capabilities updated: markets include gold; volume per market
   verified. Still unverified: daily-limit 429 wording, history depth per symbol, which end a
   truncated response keeps (never relied on).
+
+## D-022 — Import job engine (TASK 008)
+
+* **Date:** 2026-09-25 · **Task:** TASK 008 · **Type:** Implementation
+* **Where:** a second server-only Edge Function, `importer`, with the same access rule as
+  `market-data` (Supabase secret key, no CORS; D-020). Logic in `_shared/importer/`; shared
+  server helpers (`_shared/server/`) are now used by both functions.
+* **Run:** one call = one run with a new `run_id` (UUID) = one symbol + one requested UTC range.
+  The range is split into windows of at most the provider's verified safe size (4 999 min for
+  Twelve Data), processed oldest first, one `import_jobs` row per window.
+* **Per window:** fetch → validate (rules mirror the `candles` constraints, compared as exact
+  decimals; invalid rows are reported, never corrected) → insert with
+  `ON CONFLICT (symbol_id, interval, timestamp_utc) DO NOTHING` (duplicates counted, never stored
+  twice) → job updated with received / inserted / duplicate counts.
+* **Statuses:** `succeeded` = window definitively answered (may hold zero candles — the
+  provider's "no data" message is kept in `error_message` as a fact, not an interpretation);
+  `partial` = completeness not established (`RANGE_NOT_COMPLETE`); `rate_limited` with
+  `next_retry_at`; `failed` with `error_code` (provider code, `DATABASE_ERROR`, `INTERNAL_ERROR`).
+  For succeeded jobs `error_message` carries notes (rejected rows, provider indication).
+* **Stopping rule:** the run stops at the first window that is not `succeeded`, and reports
+  `nextStartUtc`, so a later run can never skip a range. It also stops after `maxJobs` windows
+  (default 4, at most the plan's credits per minute − 1 = 7), keeping one run inside the Basic
+  plan's minute limit until pacing is built (TASK 012).
+* **Not in this task:** `import_progress` checkpoints and resuming (TASK 009), choosing what to
+  import and balance across symbols (TASK 011), pacing/retry scheduling (TASK 012), the Admin
+  button (TASK 015). A job left `running` by a crash is handled by TASK 009.
+* **Triggered for now** by the manual workflow *Import run* (`import-run.yml`); the deploy
+  workflow now deploys every function in `supabase/functions`.

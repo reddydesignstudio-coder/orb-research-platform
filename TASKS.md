@@ -174,8 +174,8 @@ Verified: 132/132 unit tests (Node), function tests in Deno, `deno check`, local
 the entry point. Deployed to Supabase by *Deploy Edge Functions*. *Provider live check* #1
 against Twelve Data (Basic plan): SPY opening window 90/90 candles, EUR/USD, BTC/USD and
 XAU/USD 60/60 each, weekend answered as "no data" — see D-021 for the findings, which were
-applied to the adapter (`end_date` is inclusive) and to PROVIDERS.md §3. Live check #2 runs
-after this update is deployed.
+applied to the adapter (`end_date` is inclusive) and to PROVIDERS.md §3. Live check #2 after
+that change: exactly 90 / 60 / 60 / 60 rows, nothing rejected, weekend answered as no data.
 
 ---
 
@@ -186,8 +186,16 @@ Implement import jobs and run IDs.
 Status:
 
 ```text
-TODO
+IN PROGRESS — built and tested; waiting for deployment and a live import
 ```
+
+Delivered: `supabase/functions/importer/` + `_shared/importer/` (runs with run ids, safe windows,
+one job per window, validation, duplicate-safe storage, stopping rule with resume point),
+`_shared/server/` (shared by both functions), `import-run.yml` + `scripts/import-run.mjs`,
+23 tests + 10 database checks. Decision D-022.
+
+Verified so far: 153/153 unit tests (Node), 105 in Deno, all database tests incl. the importer's
+SQL on PostgreSQL, `deno check`, local Deno run of the entry point.
 
 ---
 

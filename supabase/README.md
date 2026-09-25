@@ -11,6 +11,9 @@ Server side of the platform.
 | `functions/_shared/adapters/twelve_data/` | Twelve Data adapter (TASK 006) |
 | `functions/_shared/market-data/` | Handler and non-secret config of the `market-data` function (TASK 007) |
 | `functions/market-data/` | `market-data` Edge Function entry point (TASK 007) |
+| `functions/_shared/server/` | Shared server helpers: secret-key guard, PostgREST client, symbol + provider loading |
+| `functions/_shared/importer/` | Import job engine, candle validation, storage (TASK 008) |
+| `functions/importer/` | `importer` Edge Function entry point (TASK 008) |
 
 ## market-data Edge Function (TASK 007)
 
@@ -37,6 +40,14 @@ Server side of the platform.
 * Test locally with `npm run test:db`; CI tests every push on PostgreSQL 17.
 * On push to `main`, `.github/workflows/database.yml` applies new migrations to Supabase
   after the tests pass.
+
+## importer Edge Function (TASK 008)
+
+`POST /functions/v1/importer` with `{ "symbol", "startUtc", "endUtc", "maxJobs"? }` starts one
+import run (new `run_id`): the range is split into safe windows, each window is one
+`import_jobs` row, candles are validated and stored (duplicates skipped by the unique key). The
+run stops at the first window that is not definitively answered and returns `nextStartUtc`.
+Same access rule as `market-data`. Started for now by the manual *Import run* workflow (D-022).
 
 ## Secrets
 
