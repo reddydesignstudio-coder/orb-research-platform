@@ -1,6 +1,6 @@
 # CHANGELOG
 
-## TASK 007 — Supabase Market Data Function — 2026-09-25 (awaiting live check)
+## TASK 007 — Supabase Market Data Function — 2026-09-25
 
 Added
 
@@ -9,7 +9,8 @@ Added
 * `.github/workflows/functions.yml` (deploy), `.github/workflows/live-check.yml` (manual),
   `scripts/live-check.mjs`; *Apply update package* now also starts the function deployment.
 * Tests: `tests/market-data/handler.test.js`, `tests/live-check.test.js`.
-* Decision D-020.
+* Decisions D-020, D-021. Live check applied: `end_date` sent as the range's last bar (it is
+  inclusive); gold available on Basic; volume only for US stocks. PROVIDERS.md §3 updated.
 
 ## TASK 006 — Twelve Data Adapter — 2026-09-25
 

@@ -10,6 +10,7 @@
  *   PRICING  https://twelvedata.com/pricing
  *   CREDITS  https://support.twelvedata.com/en/articles/5615854-credits
  *   HISTORY  https://support.twelvedata.com/en/articles/5194454-historical-data
+ *   LIVE     Provider live check with the owner's key, 2026-09-25 (D-021)
  */
 
 import { defineCapabilities, unverified, verified } from '../../providers/mod.js';
@@ -20,16 +21,16 @@ const CHECKED = '2026-09-25';
 const DOCS = `twelvedata.com/docs, checked ${CHECKED}`;
 const PRICING = `twelvedata.com/pricing, checked ${CHECKED}`;
 const CREDITS = `support.twelvedata.com "Credits", checked ${CHECKED}`;
+const LIVE = `provider live check, ${CHECKED} (D-021)`;
 
 /** Maximum rows in one time_series response: "outputsize … from 1 to 5000" (DOCS). */
 export const PAGE_SIZE = 5000;
 
 /**
  * Largest range (minutes) that cannot be truncated without detection (§6 rule 2).
- * A half-open range of N minutes holds at most N one-minute bars. The adapter
- * sends end_date = the exclusive range end, and whether Twelve Data treats
- * end_date as inclusive is not documented, so the response may contain one
- * extra boundary bar: N + 1 ≤ PAGE_SIZE  →  N ≤ PAGE_SIZE − 1.
+ * A half-open range of N minutes holds at most N one-minute bars; the adapter
+ * requests exactly those bars (end_date is inclusive, so it sends end − 1 min).
+ * One minute of margin is kept below the page size.
  */
 export const MAX_SAFE_RANGE_MINUTES = PAGE_SIZE - 1;
 
@@ -40,8 +41,8 @@ export const MAX_SAFE_RANGE_MINUTES = PAGE_SIZE - 1;
  */
 const PLANS = Object.freeze({
   basic: {
-    markets: verified(['us_stock', 'forex', 'crypto'], `${PRICING} (Basic: US equities/ETFs, forex, crypto)`,
-      'Commodities (gold, XAU/USD) are listed from the Grow plan upwards; not verified for Basic.'),
+    markets: verified(['us_stock', 'forex', 'crypto', 'gold'],
+      `${PRICING} (Basic: US equities/ETFs, forex, crypto); XAU/USD returned 1-minute data on Basic in the ${LIVE}`),
     rateLimit: verified({ creditsPerMinute: 8, creditsPerRequest: 1, minuteResets: 'every clock minute' },
       `${PRICING}; ${CREDITS}; time_series "API credits cost 1 per symbol" (${DOCS})`),
     quota: verified({ creditsPerDay: 800, resetsAtUtc: '00:00:00' }, `${PRICING}; ${CREDITS}`),
@@ -74,10 +75,15 @@ export function twelveDataCapabilities(plan) {
       truncationSignal: verified('none', `${DOCS} (response has only meta, values, status — no "more data" indicator)`),
       timestampSemantics: verified(
         { zone: 'UTC (the adapter always sends timezone=UTC)', label: 'bar start' },
-        `${DOCS} (timezone=UTC returns UTC datetimes and applies to start_date/end_date; datetime is "when the bar … was opened")`,
+        `${DOCS} (timezone=UTC returns UTC datetimes and applies to start_date/end_date; datetime is "when the bar … was opened"); ` +
+          `${LIVE}: SPY 09:30 ET bar labelled 13:30Z, end_date inclusive`,
       ),
       maxSafeRangeMinutes: verified(MAX_SAFE_RANGE_MINUTES, `derived from pageSize (${DOCS}); see MAX_SAFE_RANGE_MINUTES`),
-      volume: unverified('Docs: volume is "available not for all instrument types". Recorded as absent when not sent.'),
+      volume: verified(
+        { us_stock: true, forex: false, crypto: false, gold: false },
+        `${LIVE}: SPY 90/90 candles with volume; EUR/USD, BTC/USD, XAU/USD none`,
+        'Absent volume is stored as null, never 0.',
+      ),
     },
   });
 }

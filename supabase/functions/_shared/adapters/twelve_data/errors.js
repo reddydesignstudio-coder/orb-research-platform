@@ -6,9 +6,9 @@
  * 414, 429, 500. The adapter reads the code from the body, and falls back to
  * the HTTP status.
  *
- * NOT documented, marked UNVERIFIED below and listed for the live check:
- *   - the wording of the "no data for these dates" message;
- *   - whether a 429 message distinguishes the daily limit from the minute limit.
+ * NOT documented, marked below:
+ *   - the "no data for these dates" wording — verified in the live check (D-021);
+ *   - whether a 429 message distinguishes the daily limit from the minute limit — UNVERIFIED.
  * When those patterns do not match, the error falls back to the safe category
  * (UNKNOWN → shown to the owner; RATE_LIMITED → retried next minute).
  */
@@ -16,8 +16,10 @@
 import { ProviderError, ProviderErrorCode } from '../../providers/mod.js';
 import { TWELVE_DATA_ID } from './capabilities.js';
 
-// UNVERIFIED message patterns — confirm during the live check (PROVIDERS.md §15).
+// "No data is available on the specified dates. Try setting different start/end dates."
+// with code 400 — VERIFIED in the live check (2026-09-25, D-021).
 export const NO_DATA_MESSAGE = /no data is available/i;
+// UNVERIFIED — not yet observed live; falls back safely (see header).
 export const DAILY_LIMIT_MESSAGE = /\b(daily|per day|for the day|today)\b/i;
 export const SYMBOL_MESSAGE = /symbol.*(not found|invalid|missing)|(not found|invalid).*symbol/i;
 

@@ -91,7 +91,8 @@ Twelve Data is the initial provider. *(PROJECT.md §6; ARCHITECTURE.md §4)*
 
 Verification of this table: TASK 006, 2026-09-25 (D-019). Sources:
 [DOCS] twelvedata.com/docs · [PRICING] twelvedata.com/pricing ·
-[CREDITS] support.twelvedata.com "Credits" · [HISTORY] support.twelvedata.com "Historical data".
+[CREDITS] support.twelvedata.com "Credits" · [HISTORY] support.twelvedata.com "Historical data" ·
+[LIVE] provider live check with the owner's key, 2026-09-25 (D-021).
 Plan values are for the owner's plan, **Basic**, confirmed by the owner.
 
 | Item | Status |
@@ -99,18 +100,18 @@ Plan values are for the owner's plan, **Basic**, confirmed by the owner.
 | Provider identifier | `twelve_data` **(proposed)** — used by the seeded symbols |
 | Secret name for the API key | `TWELVE_DATA_API_KEY` **(proposed)** |
 | Symbol formats | Verified [DOCS]: stocks as the ticker (`AAPL`); forex, crypto and commodities with a slash (`EUR/USD`, `BTC/USD`, `XAU/USD`) |
-| 1-minute data availability | Verified [DOCS]: `interval=1min`. Basic covers US equities/ETFs, forex and crypto [PRICING]. **Gold (commodities) is listed from the Grow plan; not verified for Basic** |
+| 1-minute data availability | Verified [DOCS]: `interval=1min`. Basic covers US equities/ETFs, forex and crypto [PRICING]. [LIVE]: XAU/USD also returned 1-minute data on Basic |
 | Historical depth of 1-minute data | **TO BE VERIFIED** per symbol. [HISTORY] says only "a couple of months to a year" (US intraday) and "a year" (forex/crypto intraday). The `earliest_timestamp` endpoint reports it per symbol (1 credit) [DOCS] |
 | Maximum candles per request (page size) | Verified [DOCS]: `outputsize` 1–5000 |
-| Pagination / range requests; result order | Verified [DOCS]: `start_date` / `end_date` bound the range; `order=asc` or `desc` (default desc). **TO BE VERIFIED:** whether `end_date` is inclusive, and which end of a range a truncated response keeps |
+| Pagination / range requests; result order | Verified [DOCS]: `start_date` / `end_date` bound the range; `order=asc` or `desc` (default desc). [LIVE]: `end_date` is **inclusive** — the adapter sends the range's last bar. **TO BE VERIFIED:** which end of a range a truncated response keeps (the adapter never relies on it) |
 | Rate limits | Verified [PRICING, CREDITS]: Basic 8 API credits per minute; credits reset every clock minute |
 | Daily quota and how usage is counted | Verified [PRICING, CREDITS, DOCS]: Basic 800 credits/day; `time_series` costs 1 credit per symbol; responses carry `api-credits-used` / `api-credits-left` headers |
 | Quota reset time | Verified [CREDITS]: 00:00:00 UTC (Basic) |
 | How the API key is sent | Verified [DOCS]: header `Authorization: apikey <key>` (recommended) or `apikey` query parameter. The adapter uses the header only |
-| Timestamp timezone and bar convention | Verified [DOCS]: `timezone=UTC` returns UTC datetimes and applies to `start_date` / `end_date`; datetime is when the bar opened (bar start) |
-| Volume availability | **TO BE VERIFIED** per asset class. [DOCS]: volume is "available not for all instrument types". Absent volume is stored as null |
+| Timestamp timezone and bar convention | Verified [DOCS]: `timezone=UTC` returns UTC datetimes and applies to `start_date` / `end_date`; datetime is when the bar opened (bar start). [LIVE]: SPY 09:30 ET bar labelled 13:30Z (EDT); 90 of 90 opening-window candles |
+| Volume availability | Verified [LIVE]: US stocks have volume; forex (EUR/USD), crypto (BTC/USD) and gold (XAU/USD) have none. Absent volume is stored as null, never 0 |
 | Truncation / "more data" signal | Verified [DOCS]: none — the response has only `meta`, `values` and `status` |
-| Error and rate-limit formats | Verified [DOCS]: JSON `{code, message, status: "error"}`; codes 400, 401, 403, 404, 414, 429, 500. **TO BE VERIFIED:** exact wording for "no data" and for the daily limit |
+| Error and rate-limit formats | Verified [DOCS]: JSON `{code, message, status: "error"}`; codes 400, 401, 403, 404, 414, 429, 500. [LIVE]: a range with no bars answers code 400 "No data is available on the specified dates…". **TO BE VERIFIED:** wording of the daily-limit 429 (falls back safely) |
 | Price adjustment | Verified [DOCS]: `adjust` defaults to `splits`. The adapter sends `adjust=none` (owner decision, D-018) |
 | Licensing | Basic is "internal non-display usage" [PRICING]; Grow adds "internal display". **Owner to confirm** that showing results in this private app fits the plan's terms |
 
@@ -384,7 +385,7 @@ be run separately. It is not part of automated testing.
 | # | Item |
 |---|------|
 | P-1 | Done in TASK 006 except the items still marked **TO BE VERIFIED** in §3 |
-| P-2 | Page limit and truncation signal verified (§3). Still open: `end_date` inclusivity and which end a truncated response keeps — the adapter is safe either way (D-019) |
+| P-2 | Done: page limit, truncation signal and `end_date` inclusivity verified (§3). Which end a truncated response keeps stays unknown; the adapter never relies on it (D-019) |
 | P-3 | Owner to confirm licensing for storing and displaying the data (Basic: "internal non-display") |
-| P-5 | Live check with the owner's key (TASK 007): response format matches the test fixtures, `end_date` inclusivity, "no data" and daily-limit message wording, volume per asset class, and whether XAU/USD is refused on Basic |
+| P-5 | Done in TASK 007 (D-021), except the daily-limit 429 wording, which can only be observed when the limit is reached |
 | P-4 | Approve or amend the **(proposed)** items: identifier and secret name (§3), range sizing rule (§6.2), backoff (§9), error categories (§10), contract test suite (§15) |

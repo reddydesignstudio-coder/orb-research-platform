@@ -163,21 +163,21 @@ Create secure Edge Function for provider access.
 Status:
 
 ```text
-IN PROGRESS — built and tested; waiting for deployment and the live check
+COMPLETE — 2026-09-25
 ```
 
 Delivered: `supabase/functions/market-data/` + `_shared/market-data/` (secret-key-only access,
 symbol lookup, configured provider only, no storage), `functions.yml` deploy workflow,
-`live-check.yml` + `scripts/live-check.mjs`, 16 tests. Decision D-020.
+`live-check.yml` + `scripts/live-check.mjs`, 16 tests. Decisions D-020, D-021.
 
-Verified so far: 132/132 unit tests (Node), function tests in Deno, `deno check`, and a local
-Deno run of the entry point (405 / 401 / database error answered correctly).
-
-Remaining: owner adds the secrets; deploy; run the live check (PROVIDERS.md P-5).
+Verified: 132/132 unit tests (Node), function tests in Deno, `deno check`, local Deno run of
+the entry point. Deployed to Supabase by *Deploy Edge Functions*. *Provider live check* #1
+against Twelve Data (Basic plan): SPY opening window 90/90 candles, EUR/USD, BTC/USD and
+XAU/USD 60/60 each, weekend answered as "no data" — see D-021 for the findings, which were
+applied to the adapter (`end_date` is inclusive) and to PROVIDERS.md §3. Live check #2 runs
+after this update is deployed.
 
 ---
-
-## PHASE 3 — IMPORTER
 
 ### TASK 008 — Import Job Engine
 

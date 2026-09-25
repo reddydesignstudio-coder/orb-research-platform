@@ -267,3 +267,23 @@ timezone and deployment decisions require owner approval (INSTRUCTIONS.md §4).
 * **Live check:** manual workflow `live-check.yml` → `scripts/live-check.mjs`, using a
   dedicated Supabase secret key stored as the GitHub secret `SUPABASE_SECRET_KEY`. It never sees
   the provider key. Five calls, 10 s apart.
+
+## D-021 — Provider live check results (TASK 007)
+
+* **Date:** 2026-09-25 · **Task:** TASK 007 · **Type:** Verification
+* **Run:** *Provider live check* #1 on GitHub Actions against the deployed `market-data`
+  function, owner's Basic plan, 5 calls. Trading day 2026-09-24, weekend 2026-09-19.
+* **Results:**
+  * SPY opening window 09:30–11:00 ET: 90 of 90 candles, first 13:30Z (EDT), all with volume,
+    prices as exact decimals, nothing else rejected.
+  * EUR/USD, BTC/USD, XAU/USD 14:00–15:00 UTC: 60 of 60 candles each, **no volume** (stored as
+    null). **Gold is available on the Basic plan.**
+  * Saturday: code 400 "No data is available on the specified dates…", recorded as an answered,
+    empty range.
+  * `end_date` is **inclusive**: each response carried one extra bar at the range end, which the
+    shared layer rejected as outside the range (nothing stored twice, nothing lost).
+  * `api-credits-used` / `api-credits-left` headers present.
+* **Change made:** the adapter now sends `end_date` = the range's last bar (end − 1 minute), so
+  no out-of-range bar is returned. Capabilities updated: markets include gold; volume per market
+  verified. Still unverified: daily-limit 429 wording, history depth per symbol, which end a
+  truncated response keeps (never relied on).

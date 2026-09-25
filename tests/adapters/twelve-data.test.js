@@ -78,7 +78,7 @@ test('request: exact symbol, 1min, UTC dates, asc, page size, raw prices; key on
   const u = new URL(url);
   assert.equal(u.origin + u.pathname, 'https://api.twelvedata.com/time_series');
   assert.deepEqual(Object.fromEntries(u.searchParams), {
-    symbol: 'SPY', interval: '1min', start_date: '2026-07-01T13:30:00', end_date: '2026-07-01T13:33:00',
+    symbol: 'SPY', interval: '1min', start_date: '2026-07-01T13:30:00', end_date: '2026-07-01T13:32:00', // inclusive: last bar
     timezone: 'UTC', order: 'asc', outputsize: '5000', adjust: 'none',
   });
   assert.ok(!url.includes(KEY), 'API key must never be in the URL');
@@ -128,7 +128,7 @@ test('tdDatetimeToUtc: only the documented bare format is converted; anything el
   assert.equal(tdDatetimeToUtc(undefined), undefined);
 });
 
-test('bar at the exclusive range end is rejected (belongs to the next range), not stored', async () => {
+test('a bar at the exclusive range end, if ever returned, is rejected (belongs to the next range), not stored', async () => {
   const p = make();
   const r = await p.fetchCandles(req(p, SPY, '2026-07-02T13:30:00Z', '2026-07-02T13:32:00Z'));
   assert.equal(r.candles.length, 2);
@@ -228,13 +228,14 @@ test('missing API key → AUTH_FAILED with instructions; unverified plan is refu
   assert.throws(() => createTwelveDataProvider({ apiKey: KEY, plan: 'grow' }), /Unverified Twelve Data plan/);
 });
 
-test('capabilities: Basic plan limits verified with sources; gold not verified for Basic', () => {
+test('capabilities: Basic plan limits and live-check facts verified with sources', () => {
   const caps = make().capabilities();
-  assert.deepEqual(requireVerified(caps, 'markets'), ['us_stock', 'forex', 'crypto']);
+  assert.deepEqual(requireVerified(caps, 'markets'), ['us_stock', 'forex', 'crypto', 'gold']);
+  assert.deepEqual(requireVerified(caps, 'volume'), { us_stock: true, forex: false, crypto: false, gold: false });
   assert.equal(requireVerified(caps, 'rateLimit').creditsPerMinute, 8);
   assert.equal(requireVerified(caps, 'quota').creditsPerDay, 800);
   assert.equal(requireVerified(caps, 'pageSize'), 5000);
-  for (const k of ['historyDepth', 'resultOrder', 'volume']) assert.equal(isVerified(caps, k), false, k);
+  for (const k of ['historyDepth', 'resultOrder']) assert.equal(isVerified(caps, k), false, k);
   for (const [k, f] of Object.entries(caps.facts)) if (f.verified) assert.match(f.source, /2026-09-25|derived/, k);
 });
 

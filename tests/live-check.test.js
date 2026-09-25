@@ -39,7 +39,7 @@ test('report shows counts, volume and the end-boundary finding; errors show code
     },
   });
   assert.match(ok, /Candles with volume \| 1 of 2/);
-  assert.match(ok, /end inclusive\) \| yes/);
+  assert.match(ok, /range end returned \| yes/);
   const err = describe({ id: 'g', question: 'q', body: {} }, 502, { ok: false, error: { code: 'PLAN_RESTRICTED', message: 'Grow plan', retryPolicy: 'needs_human' } });
   assert.match(err, /PLAN_RESTRICTED/);
 });

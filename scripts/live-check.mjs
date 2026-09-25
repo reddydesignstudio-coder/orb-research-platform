@@ -91,7 +91,7 @@ export function describe(probe, status, json) {
     `| First / last | ${r.coveredRange ? `${r.coveredRange.first} / ${r.coveredRange.last}` : '—'} |`,
     `| Candles with volume | ${withVolume} of ${c.length} |`,
     `| Rejected | ${Object.keys(reasons).length ? Object.entries(reasons).map(([k, v]) => `${k} ×${v}`).join(', ') : 'none'} |`,
-    `| Bar at end_date returned (end inclusive) | ${boundary ? 'yes' : 'no'} |`,
+    `| Bar at the (exclusive) range end returned | ${boundary ? 'yes — rejected, belongs to the next range' : 'no'} |`,
     `| Truncation / completeness | ${r.truncation} / ${json.completeness.state} |`,
     `| Provider notes | ${(r.providerNotes ?? []).join(' · ') || '—'} |`,
   );

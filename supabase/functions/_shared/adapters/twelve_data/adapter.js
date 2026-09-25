@@ -11,7 +11,8 @@
  *   GET https://api.twelvedata.com/time_series
  *   Authorization: apikey <key>        header — the key is never put in the URL
  *   symbol=<provider_symbol exactly>   interval=1min
- *   start_date / end_date              range in UTC ("YYYY-MM-DDTHH:MM:SS")
+ *   start_date / end_date              range in UTC ("YYYY-MM-DDTHH:MM:SS"); end_date is
+ *                                      inclusive, so it is the range's last bar
  *   timezone=UTC                       output datetimes and date params in UTC
  *   order=asc   outputsize=5000        (page size)
  *   adjust=none                        raw prices: stored candles are immutable,
@@ -43,6 +44,12 @@ const TD_DATETIME = /^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}:\d{2})$/;
 const toTdDate = (isoUtc) => isoUtc.slice(0, 19);
 
 /**
+ * end_date is INCLUSIVE (live check 2026-09-25, D-021), so the last bar of a
+ * half-open [start, end) range is requested as end − 1 minute.
+ */
+const lastBarOf = (range) => new Date(Date.parse(range.endUtc) - 60_000).toISOString();
+
+/**
  * The adapter asked for UTC, so a bare "YYYY-MM-DD HH:MM:SS" is a UTC instant.
  * Anything else is passed through unchanged, so shared normalization rejects
  * it with a reason instead of the adapter guessing.
@@ -58,7 +65,7 @@ export function buildTimeSeriesUrl(request, baseUrl = BASE_URL) {
     symbol: request.symbol.providerSymbol,
     interval: '1min',
     start_date: toTdDate(request.range.startUtc),
-    end_date: toTdDate(request.range.endUtc),
+    end_date: toTdDate(lastBarOf(request.range)),
     timezone: 'UTC',
     order: 'asc',
     outputsize: String(PAGE_SIZE),
