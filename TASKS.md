@@ -69,8 +69,19 @@ Add constraints and indexes.
 Status:
 
 ```text
-TODO
+IMPLEMENTED — awaiting first production apply
 ```
+
+Delivered: `supabase/migrations/20260925120000_initial_schema.sql` (9 tables, constraints,
+indexes, triggers, RLS), `supabase/config.toml`, 75 database checks (`npm run test:db`),
+migration guard test, CI database job, automatic deploy workflow. Decisions D-009 – D-013.
+
+Verified: all database checks pass on PostgreSQL 16 locally; `supabase db push` (CLI
+2.117.0) tested against a stand-in database — dry run, apply, and idempotent re-run.
+CI repeats the tests on PostgreSQL 17 (Supabase's version).
+
+To mark COMPLETE: owner adds the `SUPABASE_DB_URL` secret and "Deploy database migrations"
+succeeds against the real project.
 
 ---
 

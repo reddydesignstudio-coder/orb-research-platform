@@ -1,5 +1,29 @@
 # CHANGELOG
 
+## TASK 003 — Supabase Schema — 2026-09-25
+
+Added
+
+* `supabase/migrations/20260925120000_initial_schema.sql` — 9 tables with constraints,
+  indexes, triggers (updated_at, timezone validation, DST-aware `timestamp_et`, candle
+  immutability) and Row Level Security.
+* `supabase/config.toml` (Supabase CLI).
+* Database tests: `tests/db/` (75 checks) and `scripts/test-db.sh` / `npm run test:db`.
+* `tests/migrations.test.js` — destructive-migration guard and RLS check.
+* CI job on PostgreSQL 17; `.github/workflows/database.yml` applies migrations to Supabase.
+* DATABASE.md "APPROVED ADDITIONS"; decisions D-009 – D-013; SR-19, SR-20.
+
+## Visual refresh — 2026-09-25
+
+Changed
+
+* Colourful design: gradient header with ORB breakout logo, per-section colour and icon,
+  coloured page headers, "What this section will do" cards (from the spec), Dashboard module
+  tiles, compact rows on phones, light and dark themes.
+* Live "Database online / paused / unreachable" pill in the header (`frontend/js/health.js`).
+* Green and red kept out of the section palette — reserved for bullish / bearish results.
+* Tests: 33 (health status, section colours/icons).
+
 ## Supabase + GitHub setup — 2026-09-25
 
 Added

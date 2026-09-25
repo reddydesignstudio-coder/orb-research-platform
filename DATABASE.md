@@ -191,3 +191,50 @@ Create efficient indexes for:
 Use PostgreSQL constraints to enforce data integrity.
 
 Application logic alone is not sufficient.
+
+---
+
+# APPROVED ADDITIONS (2026-09-25, D-009)
+
+Approved by the project owner (SR-04 – SR-07). Implemented in
+`supabase/migrations/20260925120000_initial_schema.sql`.
+
+## data_quality — added
+
+```text
+invalid_ohlc_candles
+invalid_timestamp_candles
+```
+
+## trades — added
+
+```text
+exit_reason   take_profit | stop_loss | time_exit | ambiguous_stop
+created_at
+```
+
+`ambiguous_stop` = TP and SL touched in the same candle; always recorded as a loss (ORB_SPEC.md).
+
+## candles.timestamp_et
+
+Kept for every symbol. Always derived from `timestamp_utc` by the database
+(America/New_York, DST-aware); client-supplied values are overwritten.
+`timestamp_utc` is canonical.
+
+## Index on relationships
+
+The `relationships(...)` index in INDEXES is created on `orb_relationships`.
+
+---
+
+# IMPLEMENTATION NOTES
+
+* Candle uniqueness is enforced as `unique (symbol_id, interval, timestamp_utc)` — the same
+  rule as `symbol_id + timestamp_utc + interval`; this column order also serves both candle
+  lookup indexes, so no duplicate index is stored (D-010).
+* Candles are immutable: UPDATE, DELETE and TRUNCATE are blocked by trigger. An approved
+  maintenance transaction can opt in with `set local orb.allow_candle_modification = 'on'`.
+* `orb_relationships.delay_seconds` and `same_direction` are generated columns.
+* Row Level Security is enabled on every table; browser roles cannot write; only signed-in
+  users can read (D-011).
+* Measured storage: about 230 bytes per candle including indexes.
