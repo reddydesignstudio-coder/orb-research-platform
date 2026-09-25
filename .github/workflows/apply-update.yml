@@ -1,0 +1,109 @@
+# Applies an update package uploaded through the GitHub website (D-015).
+#
+# How it is used:
+#   1. Upload the file  orb-update.zip  to the TOP LEVEL of the repository
+#      (Add file → Upload files → drag the zip itself; do NOT unzip it).
+#   2. This workflow starts automatically. It:
+#        a. checks the package (must be a full project snapshot, no .github/),
+#        b. runs  npm run check  on the package — nothing is applied if it fails,
+#        c. makes the repository match the package exactly (everything except
+#           .git/ and .github/), which also removes stray or misplaced files,
+#        d. commits and pushes, removing orb-update.zip,
+#        e. starts CI, Pages and database deployment for the new commit.
+#
+# Files in .github/workflows are never changed by this workflow (GitHub does not
+# allow it); those are uploaded directly into .github/workflows when needed.
+name: Apply update package
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'orb-update.zip'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: apply-update
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Unpack and validate the package
+        run: |
+          set -eu
+          if [ ! -f orb-update.zip ]; then
+            echo "::error::orb-update.zip not found at the top level of the repository."
+            exit 1
+          fi
+          rm -rf "$RUNNER_TEMP/pkg" && mkdir -p "$RUNNER_TEMP/pkg"
+          unzip -q orb-update.zip -d "$RUNNER_TEMP/pkg"
+          PKG="$RUNNER_TEMP/pkg"
+          # Accept a zip whose content sits inside one top-level folder.
+          if [ ! -f "$PKG/CLAUDE.md" ] && [ "$(ls -A "$PKG" | wc -l)" -eq 1 ] && [ -d "$PKG/$(ls -A "$PKG")" ]; then
+            PKG="$PKG/$(ls -A "$PKG")"
+          fi
+          for f in CLAUDE.md TASKS.md package.json frontend/index.html supabase/migrations; do
+            [ -e "$PKG/$f" ] || { echo "::error::Package is not a full project snapshot: $f is missing."; exit 1; }
+          done
+          if [ -e "$PKG/.github" ] || [ -e "$PKG/.git" ]; then
+            echo "::error::Package must not contain .github/ or .git/."
+            exit 1
+          fi
+          echo "PKG=$PKG" >> "$GITHUB_ENV"
+          echo "Package contents OK:"
+          (cd "$PKG" && find . -type f | sort | sed 's|^\./|  |')
+
+      - name: Test the package before applying it
+        run: |
+          set -eu
+          cd "$PKG"
+          npm run check
+
+      - name: Make the repository match the package
+        run: |
+          set -eu
+          # Remove everything except .git and .github, then copy the package in.
+          find . -mindepth 1 -maxdepth 1 ! -name .git ! -name .github -exec rm -rf {} +
+          cp -a "$PKG"/. .
+          TITLE=$(head -n 1 UPDATE.txt 2>/dev/null || echo "Update")
+          rm -f UPDATE.txt  # package label only; not part of the project
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Repository already matches the package; nothing to commit."
+            echo "CHANGED=false" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          echo "Changes being applied:"
+          git diff --cached --name-status | sed 's/^/  /'
+          git commit -q -m "Apply update package: $TITLE"
+          git push
+          echo "CHANGED=true" >> "$GITHUB_ENV"
+
+      - name: Start CI, Pages and database deployment
+        if: env.CHANGED == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          # Pushes made with the workflow token do not start other workflows by
+          # themselves, so start them explicitly.
+          for wf in ci.yml pages.yml database.yml; do
+            if [ -f ".github/workflows/$wf" ]; then
+              gh workflow run "$wf" --ref main
+              echo "Started $wf"
+            fi
+          done
