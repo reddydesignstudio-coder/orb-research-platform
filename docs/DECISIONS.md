@@ -183,3 +183,38 @@ timezone and deployment decisions require owner approval (INSTRUCTIONS.md §4).
   exactly (except `.git/` and `.github/`), commits, and starts CI, Pages and database deploy.
 * Workflow files (`.github/workflows/*`) still need a direct upload into that folder, because
   GitHub does not allow workflows to change workflow files.
+
+## D-016 — PROVIDERS.md approved
+
+* **Date:** 2026-09-25 · **Approved by:** project owner
+* **Decision:** PROVIDERS.md revision 2 is approved and replaces the provisional file. The
+  original PROVIDERS.md was unavailable; the approved text is derived from the original project
+  files. The final change before approval was to §6 rule 2: the range-sizing rule now reads
+  "A requested range must be sized conservatively enough that, based on the provider's verified
+  page-size and timestamp semantics, the provider cannot truncate the response without the
+  adapter detecting it."
+* Items marked **(proposed)** and **TO BE VERIFIED** inside PROVIDERS.md keep that status.
+
+## D-017 — Location and form of the shared provider layer (TASK 005)
+
+* **Date:** 2026-09-25 · **Task:** TASK 005 · **Type:** Implementation
+* **Decision:** the provider abstraction lives in `supabase/functions/_shared/providers/` as
+  plain JavaScript ES modules with explicit `.js` imports and no dependencies. `_shared` is
+  Supabase's convention for code used by Edge Functions (folders starting with `_` are not
+  deployed as functions). The same files run in Deno (Edge Functions) and in Node (tests).
+* **Verified:** all 53 provider tests pass under Node 22 and under Deno 2.9.7; `deno check`
+  passes on the module.
+* **Implementation choices inside the approved PROVIDERS.md:**
+  * Capabilities are *facts*: verified (with a source) or unverified. `requireVerified()`
+    throws for unverified facts, so code cannot rely on a TO BE VERIFIED value.
+  * Timestamps without an explicit timezone are rejected by the shared normalizer; the adapter
+    must convert provider timestamps (whose semantics are TO BE VERIFIED) explicitly.
+  * Range completeness (§6) is decided in one function, `assessCompleteness()`: an adapter's
+    "nothing more" is trusted only if the provider's explicit truncation signal is verified,
+    and an unknown truncation state counts as answered only when the range fits a verified
+    `maxSafeRangeMinutes`. Otherwise the range is "undetermined" and must be split.
+  * A truncated result's remainder overlaps the boundary candle by one minute (duplicates are
+    only counted, gaps would skip data), and returns null instead of looping when no progress
+    is possible.
+  * The shared contract checker (`tests/providers/provider-contract.js`) returns a list of
+    violations; every adapter's tests must assert it is empty.

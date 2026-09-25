@@ -1,5 +1,22 @@
 # CHANGELOG
 
+## TASK 005 — Provider Interface — 2026-09-25
+
+Added
+
+* `supabase/functions/_shared/providers/` — provider-neutral `MarketDataProvider` layer:
+  `candle.js` (normalized 1-minute candle), `capabilities.js` (verified / unverified facts),
+  `errors.js` (error categories, retry policy, secret redaction), `retrieval.js` (ranges,
+  requests, results, range completeness), `provider.js` (contract, exact symbol resolution),
+  `registry.js` (no fallback between providers), `mod.js` (entry point).
+* `tests/providers/` — 53 tests incl. the shared contract checker, a synthetic fake provider,
+  broken-provider cases and a provider-neutrality guard. Pass in Node and in Deno.
+* Decision D-017.
+
+Not changed
+
+* No provider adapter; no Twelve Data values; no importer, ORB, backtest or frontend changes.
+
 ## One-file website updates — 2026-09-25
 
 * `.github/workflows/apply-update.yml` + `scripts/make-update.sh`: updates arrive as one

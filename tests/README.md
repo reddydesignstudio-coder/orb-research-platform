@@ -17,7 +17,16 @@ Files must be named `*.test.js`.
 | `serve.test.js` | Dev server: MIME types, 404/405, path-traversal protection |
 | `check-db-url.test.js` | SUPABASE_DB_URL format check: placeholder, brackets, whitespace, special chars, wrong host/port/user — without printing the password |
 | `migrations.test.js` | Migration names, no unapproved destructive SQL, RLS on every new table |
+| `providers/*.test.js` | Provider layer (TASK 005): candle normalization, capabilities, error classification, range completeness, registry, provider neutrality, and the shared contract |
 | `frontend-security.test.js` | No secrets, provider calls, browser storage or third-party scripts in `frontend/`; CSP present |
+
+## Provider contract — `tests/providers/provider-contract.js`
+
+`checkProviderContract({ provider, symbolConfig, scenarios, secrets })` returns a list of
+violations of PROVIDERS.md. Every adapter's own test file runs it on recorded or synthetic
+fixtures and asserts the list is empty. `tests/providers/fixtures/` holds a synthetic,
+fixture-driven fake provider (an invented format, not any real provider) and deliberately
+broken variants that prove the checker catches violations. No test calls a live provider.
 
 ## Database tests — `npm run test:db`
 

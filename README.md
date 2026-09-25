@@ -65,6 +65,7 @@ Supporting engineering docs live in [`docs/`](docs/README.md).
 │   ├── config.toml                      Supabase CLI project config
 │   ├── migrations/                      PostgreSQL schema migrations (applied by CI)
 │   └── functions/                       Supabase Edge Functions      (TASK 007+)
+│       └── _shared/providers/           MarketDataProvider layer     (TASK 005)
 ├── tests/                               node:test unit tests; tests/db/ SQL schema tests
 └── scripts/
     ├── serve.mjs                        Local dev server

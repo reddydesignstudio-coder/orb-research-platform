@@ -93,7 +93,7 @@ Create initial 15-symbol configurable seed universe.
 Status:
 
 ```text
-IMPLEMENTED — awaiting production apply
+COMPLETE — 2026-09-25
 ```
 
 Delivered: `supabase/migrations/20260925150000_seed_initial_universe.sql` (approved list, D-014),
@@ -101,6 +101,11 @@ Delivered: `supabase/migrations/20260925150000_seed_initial_universe.sql` (appro
 
 Verified: all 87 database checks pass locally; incremental `supabase db push` rehearsal
 applied only the new migration (8 US / 4 forex / 2 crypto / 1 gold).
+
+Production: applied through the update package (D-015) on 2026-09-25. "Deploy database
+migrations" log shows the tests passing and "Applying migration
+20260925150000_seed_initial_universe.sql"; repository verified identical to the tested
+project.
 
 ---
 
@@ -113,8 +118,16 @@ Create market-data provider abstraction.
 Status:
 
 ```text
-TODO
+COMPLETE — 2026-09-25
 ```
+
+Delivered: `supabase/functions/_shared/providers/` (normalized candle, capability facts, error
+classification, symbol resolution, historical retrieval result, range-completeness rule,
+provider registry) and `tests/providers/` (53 tests incl. the shared contract checker used by
+every future adapter). Decision D-017. No provider adapter and no provider-specific values.
+
+Verified: 95/95 unit tests and all database tests pass; the provider tests also pass under
+Deno 2.9.7 (the Edge Functions runtime) and `deno check` passes.
 
 ---
 
