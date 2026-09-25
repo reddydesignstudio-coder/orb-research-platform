@@ -66,12 +66,15 @@ Supporting engineering docs live in [`docs/`](docs/README.md).
 │   ├── migrations/                      PostgreSQL schema migrations (applied by CI)
 │   └── functions/                       Supabase Edge Functions      (TASK 007+)
 │       ├── _shared/providers/           MarketDataProvider layer     (TASK 005)
-│       └── _shared/adapters/twelve_data/ Twelve Data adapter         (TASK 006)
+│       ├── _shared/adapters/twelve_data/ Twelve Data adapter         (TASK 006)
+│       ├── _shared/market-data/          market-data handler + config (TASK 007)
+│       └── market-data/                  market-data Edge Function    (TASK 007)
 ├── tests/                               node:test unit tests; tests/db/ SQL schema tests
 └── scripts/
     ├── serve.mjs                        Local dev server
     ├── test-db.sh                       Database tests on a throwaway database
     ├── check-supabase.mjs               Supabase connectivity check
+    ├── live-check.mjs                   Provider live check (manual workflow)
     └── verify-foundation.sh             Structure + secret-hygiene check
 ```
 
@@ -112,6 +115,13 @@ puts every file in its correct folder, removes stray files, and starts the deplo
   the unit and database tests, a dry run, then applies them to Supabase. Needs the
   `SUPABASE_DB_URL` repository secret (Settings → Secrets and variables → Actions) — the
   Supabase *Session pooler* connection string. The password lives only in GitHub Secrets.
+* **Edge Functions** (`.github/workflows/functions.yml`): after `npm run check`, deploys the
+  `market-data` function. Needs the `SUPABASE_ACCESS_TOKEN` repository secret (a Supabase
+  personal access token). The Twelve Data key is set only in Supabase (Edge Functions →
+  Secrets → `TWELVE_DATA_API_KEY`), never in GitHub.
+* **Provider live check** (`.github/workflows/live-check.yml`, manual): 5 paced calls to the
+  deployed function; report in the run summary. Needs the `SUPABASE_SECRET_KEY` repository
+  secret (a Supabase secret key).
 * **Pages** (`.github/workflows/pages.yml`): after checks pass, `frontend/` is published to
   GitHub Pages on every push to `main`. One-time setup: Settings → Pages → Source:
   **GitHub Actions**.
@@ -122,6 +132,7 @@ puts every file in its correct folder, removes stray files, and starts the deplo
 |------|-------|-----------|
 | Supabase URL + anon/publishable key (public) | `frontend/js/app-config.js` | Yes — public by design |
 | Provider API keys (Twelve Data, …) | Supabase Edge Function secrets; locally `supabase/functions/.env` (template: `.env.example`) | **Never** |
+| Provider plan | `supabase/functions/_shared/market-data/config.js` | Yes — not secret |
 | Supabase service-role / secret key | Supabase only | **Never** |
 
 The app validates `app-config.js` at start-up and refuses to connect if it finds a

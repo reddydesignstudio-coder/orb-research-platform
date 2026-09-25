@@ -8,6 +8,22 @@ Server side of the platform.
 | `migrations/` | PostgreSQL schema migrations, applied in file-name order |
 | `functions/` | Edge Functions for provider access and importing (TASK 007+) |
 | `functions/_shared/providers/` | Provider-neutral `MarketDataProvider` layer (TASK 005, PROVIDERS.md). Not deployed as a function. |
+| `functions/_shared/adapters/twelve_data/` | Twelve Data adapter (TASK 006) |
+| `functions/_shared/market-data/` | Handler and non-secret config of the `market-data` function (TASK 007) |
+| `functions/market-data/` | `market-data` Edge Function entry point (TASK 007) |
+
+## market-data Edge Function (TASK 007)
+
+`POST /functions/v1/market-data` with `{ "symbol", "startUtc", "endUtc" }` → the normalized
+1-minute candles of one provider call plus the range-completeness decision. It stores nothing.
+
+* Callers must send a Supabase **secret key** in the `apikey` header; everything else gets 401.
+  No CORS headers, so browsers cannot call it (D-020).
+* The symbol is looked up in the `symbols` table and only its configured provider is used.
+* The provider plan is committed configuration (`_shared/market-data/config.js`); the provider
+  key is read from the Edge Function secret `TWELVE_DATA_API_KEY`.
+* Deployed by `.github/workflows/functions.yml`; checked against the live provider by the
+  manual *Provider live check* workflow (`scripts/live-check.mjs`).
 
 ## Migrations
 
@@ -27,3 +43,10 @@ Server side of the platform.
 Provider API keys and the service-role key are **Supabase Edge Function secrets**. The
 database connection string used by CI is the **GitHub secret** `SUPABASE_DB_URL`. None of
 these are ever written into this folder.
+
+| Secret | Where | Used by |
+|--------|-------|---------|
+| `TWELVE_DATA_API_KEY` | Supabase → Edge Functions → Secrets | `market-data` function only |
+| `SUPABASE_ACCESS_TOKEN` | GitHub repository secret | deploying Edge Functions |
+| `SUPABASE_SECRET_KEY` | GitHub repository secret (a Supabase secret key) | *Provider live check* workflow |
+| `SUPABASE_DB_URL` | GitHub repository secret | applying migrations |

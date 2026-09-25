@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## TASK 007 — Supabase Market Data Function — 2026-09-25 (awaiting live check)
+
+Added
+
+* `supabase/functions/market-data/index.ts` and `supabase/functions/_shared/market-data/`
+  (handler, non-secret config); `[functions.market-data]` in `supabase/config.toml`.
+* `.github/workflows/functions.yml` (deploy), `.github/workflows/live-check.yml` (manual),
+  `scripts/live-check.mjs`; *Apply update package* now also starts the function deployment.
+* Tests: `tests/market-data/handler.test.js`, `tests/live-check.test.js`.
+* Decision D-020.
+
 ## TASK 006 — Twelve Data Adapter — 2026-09-25
 
 Added

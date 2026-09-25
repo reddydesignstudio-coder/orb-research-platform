@@ -247,3 +247,23 @@ timezone and deployment decisions require owner approval (INSTRUCTIONS.md §4).
 * **Unverified behaviour kept safe:** the "no data" message wording and a daily-limit 429 wording
   are matched by patterns; if they don't match, the error falls back to UNKNOWN (shown to the
   owner) or RATE_LIMITED (retried next minute). Both are listed for the live check.
+
+## D-020 — market-data Edge Function: access, deployment and live check (TASK 007)
+
+* **Date:** 2026-09-25 · **Task:** TASK 007 · **Type:** Implementation (security-relevant)
+* **Access:** server-to-server only for now. Callers must send a Supabase **secret key** in the
+  `apikey` header; the function compares it (constant time) with `SUPABASE_SECRET_KEYS`, which
+  Supabase provides to every function. The gateway JWT check is off (`verify_jwt = false`)
+  because secret keys are not JWTs; the function itself fails closed. No CORS headers are sent,
+  so no browser can call it. Browser access for the signed-in owner (the Admin "GET DATA" button)
+  is decided in TASK 015; until then the provider quota cannot be used by anyone else.
+* **Scope:** one provider call per request; nothing is stored. The symbol is read from the
+  `symbols` table and only its configured provider is used (PROVIDERS.md §5, §14).
+* **Configuration:** the plan (`basic`) and the secret's *name* are committed in
+  `_shared/market-data/config.js`; the provider key is only in Supabase Edge Function secrets.
+* **Deployment:** `.github/workflows/functions.yml` runs `npm run check`, then
+  `supabase functions deploy market-data --use-api` with the GitHub secret
+  `SUPABASE_ACCESS_TOKEN`. *Apply update package* also starts it (D-015).
+* **Live check:** manual workflow `live-check.yml` → `scripts/live-check.mjs`, using a
+  dedicated Supabase secret key stored as the GitHub secret `SUPABASE_SECRET_KEY`. It never sees
+  the provider key. Five calls, 10 s apart.

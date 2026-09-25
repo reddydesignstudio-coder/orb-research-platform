@@ -163,8 +163,17 @@ Create secure Edge Function for provider access.
 Status:
 
 ```text
-TODO
+IN PROGRESS — built and tested; waiting for deployment and the live check
 ```
+
+Delivered: `supabase/functions/market-data/` + `_shared/market-data/` (secret-key-only access,
+symbol lookup, configured provider only, no storage), `functions.yml` deploy workflow,
+`live-check.yml` + `scripts/live-check.mjs`, 16 tests. Decision D-020.
+
+Verified so far: 132/132 unit tests (Node), function tests in Deno, `deno check`, and a local
+Deno run of the entry point (405 / 401 / database error answered correctly).
+
+Remaining: owner adds the secrets; deploy; run the live check (PROVIDERS.md P-5).
 
 ---
 
