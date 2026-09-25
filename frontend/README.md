@@ -11,11 +11,16 @@ js/main.js            Boot: validate config, build layout, render current route
 js/routes.js          The seven sections (single source for nav + routing)
 js/router.js          Hash routing (#/backtest) — pure, unit-tested
 js/config.js          Validates public config; rejects secrets
-js/app-config.js      PUBLIC config: Supabase URL + anon key only (empty until TASK 003+)
-js/dom.js             Tiny element helper (textContent only, never innerHTML)
-js/views/layout.js    Header, section nav, footer disclaimer
-js/views/pages.js     Planned-page, not-found and config-banner views
+js/app-config.js      PUBLIC config: Supabase URL + publishable key only
+js/health.js          Live database status (header pill)
+js/icons.js           In-repo line icons (no icon font / CDN)
+js/dom.js             Element + SVG icon helpers (textContent only, never innerHTML)
+js/views/layout.js    Gradient header, status pill, section nav, footer disclaimer
+js/views/pages.js     Page hero, planned card, Dashboard module grid, not-found, config banner
 ```
+
+Each section has its own colour and icon (`tone`, `icon` in routes.js). Green and red are
+reserved for bullish / bearish results and are never section colours.
 
 Sections (PROJECT.md §16): Dashboard, Data, Admin, ORB Research, Backtest, Relationships,
 Settings. Each currently says "Not built yet" and names the task that builds it.

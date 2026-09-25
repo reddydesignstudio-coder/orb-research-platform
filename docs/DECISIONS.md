@@ -103,3 +103,50 @@ timezone and deployment decisions require owner approval (INSTRUCTIONS.md §4).
   (`sb_publishable_…`). Both are public by design. Data access is controlled by Row Level
   Security from TASK 003. No secret key, service-role key or database password is stored
   anywhere in the repository.
+
+## D-009 — Database questions SR-04 to SR-07: recommended defaults approved
+
+* **Date:** 2026-09-25 · **Task:** TASK 003 · **Approved by:** project owner
+* SR-04: relationship index on `orb_relationships`.
+* SR-05: `data_quality.invalid_ohlc_candles`, `invalid_timestamp_candles`.
+* SR-06: `trades.exit_reason` (`take_profit`, `stop_loss`, `time_exit`, `ambiguous_stop`) and `trades.created_at`.
+* SR-07: `candles.timestamp_et` kept for all symbols, derived from UTC by trigger.
+* DATABASE.md updated ("APPROVED ADDITIONS").
+
+## D-010 — Candle unique index column order
+
+* **Date:** 2026-09-25 · **Task:** TASK 003 · **Type:** Implementation (same uniqueness rule)
+* **Decision:** `unique (symbol_id, interval, timestamp_utc)` instead of a separate unique index
+  plus `(symbol_id, timestamp_utc)` and `(symbol_id, interval, timestamp_utc)` indexes.
+* **Reason:** one index serves all three purposes. At ~850 MB/year of candles, avoiding a
+  redundant index matters on the free plan.
+
+## D-011 — Row Level Security: signed-in read, nobody writes from the browser
+
+* **Date:** 2026-09-25 · **Task:** TASK 003 · **Type:** Security (within ARCHITECTURE.md §9)
+* **Decision:** RLS on every table. SELECT policies for `authenticated` only. No write
+  policies; write privileges revoked from `anon` and `authenticated`. Edge Functions write
+  with the service role.
+* **Consequence:** the public website shows no data to anonymous visitors. Reading data will
+  require sign-in (SR-14, decided before the first data page).
+* **Reason:** secure by default; market data from a provider may not be licensed for public
+  redistribution.
+
+## D-012 — Automatic migration deployment through GitHub Actions
+
+* **Date:** 2026-09-25 · **Type:** Deployment · **Approved by:** project owner ("Automatic via GitHub")
+* **Decision:** `.github/workflows/database.yml` runs unit tests, full schema tests on a
+  throwaway PostgreSQL 17, a dry run, then `supabase db push` using the `SUPABASE_DB_URL`
+  repository secret (Session pooler connection string).
+* **Safeguards:** `tests/migrations.test.js` fails any migration containing DROP, TRUNCATE,
+  DELETE FROM, column drop/rename or disabling RLS unless it carries
+  `-- approved-destructive: <reason>`. Candles are also protected by trigger (D-013).
+* The database password lives only in GitHub Secrets — never in the repository.
+
+## D-013 — Candles are immutable in the database
+
+* **Date:** 2026-09-25 · **Task:** TASK 003 · **Type:** Data integrity (enforces RULES.md)
+* **Decision:** triggers block UPDATE, DELETE and TRUNCATE on `candles`, and `timestamp_et`
+  is always derived. Override only inside an explicitly approved transaction.
+* **Reason:** RULES.md — never shift timestamps, never silently delete, no destructive
+  operation without approval; research reproducibility.

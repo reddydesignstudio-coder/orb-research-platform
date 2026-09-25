@@ -42,3 +42,20 @@ test('default route exists and is the root path', () => {
 test('route table is immutable', () => {
   assert.ok(Object.isFrozen(ROUTES));
 });
+
+test('every section has a tone, an existing icon and highlights', async () => {
+  const { ICONS } = await import('../frontend/js/icons.js');
+  const css = await (await import('node:fs/promises')).readFile(
+    new URL('../frontend/css/app.css', import.meta.url),
+    'utf8',
+  );
+  for (const r of ROUTES) {
+    assert.ok(ICONS[r.icon], `${r.id}: icon "${r.icon}" missing from icons.js`);
+    assert.match(css, new RegExp(`\\.tone-${r.tone}\\s*\\{`), `${r.id}: .tone-${r.tone} missing from app.css`);
+    assert.ok(r.highlights.length >= 1, `${r.id}: no highlights`);
+  }
+});
+
+test('green and red are not used as section tones (reserved for bullish / bearish)', () => {
+  for (const r of ROUTES) assert.ok(!['green', 'red', 'emerald', 'rose'].includes(r.tone), r.id);
+});

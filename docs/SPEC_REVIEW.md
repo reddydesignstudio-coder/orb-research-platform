@@ -19,10 +19,10 @@ Status values: `OPEN` (needs an owner decision), `NOTED` (informational, no deci
 | SR-01 | `PROVIDERS.md` content is a copy of `RELATIONSHIPS.md` | TASK 005 | OPEN |
 | SR-02 | `PROJECT.md` / `INSTRUCTIONS.md` were not uploaded as files | — | NOTED |
 | SR-03 | ROADMAP phase numbering differs from TASKS phase numbering | — | NOTED |
-| SR-04 | Index named `relationships(...)`; table is `orb_relationships` | TASK 003 | OPEN |
-| SR-05 | `data_quality` has no field for OHLC validity / timestamp correctness | TASK 003, 014 | OPEN |
-| SR-06 | `trades` has no exit reason (TP / SL / time exit / ambiguous) | TASK 003, 019 | OPEN |
-| SR-07 | `candles.timestamp_et` for non-US markets | TASK 003 | OPEN |
+| SR-04 | Index named `relationships(...)`; table is `orb_relationships` | TASK 003 | RESOLVED (D-009) |
+| SR-05 | `data_quality` has no field for OHLC validity / timestamp correctness | TASK 003, 014 | RESOLVED (D-009) |
+| SR-06 | `trades` has no exit reason (TP / SL / time exit / ambiguous) | TASK 003, 019 | RESOLVED (D-009) |
+| SR-07 | `candles.timestamp_et` for non-US markets | TASK 003 | RESOLVED (D-009) |
 | SR-08 | Initial 15 symbols not named | TASK 004 | OPEN |
 | SR-09 | Sessions for forex, crypto and gold are not defined | TASK 004, 013, 016 | OPEN |
 | SR-10 | US market holiday calendar source not specified | TASK 013 | OPEN |
@@ -34,6 +34,8 @@ Status values: `OPEN` (needs an owner decision), `NOTED` (informational, no deci
 | SR-16 | Where shared calculation code lives (browser + Edge Functions) | TASK 005, 013, 016 | OPEN |
 | SR-17 | No task explicitly builds the Dashboard, Data and Settings pages | TASK 015, 021 | OPEN |
 | SR-18 | GitHub Pages cannot publish from `frontend/` directly | TASK 029 | RESOLVED (D-007) |
+| SR-19 | `orb_relationships` has no ORB period column | TASK 022 | OPEN |
+| SR-20 | Free-plan storage: ~850 MB/year of candles vs 500 MB | TASK 008 | OPEN |
 
 ---
 
@@ -61,20 +63,20 @@ Project instructions. Both were copied verbatim into the repository.
 (e.g. Phase 2 = Provider). Content is consistent; only numbering differs. `TASKS.md` governs
 the order of work (INSTRUCTIONS.md §2).
 
-### SR-04 — Relationship index name  — OPEN (low)
+### SR-04 — Relationship index name  — RESOLVED (D-009)
 
 `DATABASE.md` → INDEXES lists `relationships(reference_symbol_id, target_symbol_id, session_date)`.
 The only such table is `orb_relationships`. Proposed reading: the index belongs on
 `orb_relationships`. Confirm at TASK 003.
 
-### SR-05 — Recording OHLC validity and timestamp correctness  — OPEN
+### SR-05 — Recording OHLC validity and timestamp correctness  — RESOLVED (D-009)
 
 `PROJECT.md` §9 requires validating OHLC validity and timestamp correctness per session.
 The `data_quality` table has no column for either result. Options: add columns
 (e.g. `invalid_ohlc_candles`, `invalid_timestamp_candles`) or encode them in `status`.
 Adding columns changes the database design, so it needs approval.
 
-### SR-06 — Trade exit reason  — OPEN
+### SR-06 — Trade exit reason  — RESOLVED (D-009)
 
 `trades` has `result` and `r_multiple` but no exit reason. The backtest must report average
 time to TP and average time to SL, and the ambiguous-candle convention (default LOSS) should
@@ -83,7 +85,7 @@ this explicit. Database change → needs approval.
 
 Related: `trades` has no `created_at`, unlike other tables.
 
-### SR-07 — `candles.timestamp_et` for non-US markets  — OPEN
+### SR-07 — `candles.timestamp_et` for non-US markets  — RESOLVED (D-009)
 
 Storing an ET timestamp is natural for US stocks. For forex, crypto and gold the relevant
 session timezone may differ (`symbols.session_timezone`). Options: keep `timestamp_et` for all
@@ -175,3 +177,19 @@ keeps the site in `frontend/` (and `/docs` holds engineering notes). Options: a 
 workflow that publishes `frontend/` as the Pages artifact (recommended; standard, keeps
 layout), or moving the site. Deployment architecture → confirm at TASK 029 or earlier if a
 preview deployment is wanted.
+
+### SR-19 — ORB period in relationship rows  — OPEN (added in TASK 003)
+
+`orb_relationships` (DATABASE.md) has no `orb_minutes` column, so a 5-minute and a 15-minute
+relationship for the same pair and day cannot be told apart. Proposed: add `orb_minutes`
+(1/3/5/10/15) and include it in the index — an additive, non-destructive migration at TASK 022.
+Not added in TASK 003 because it changes the specified table.
+
+### SR-20 — Storage on the free plan  — OPEN (added in TASK 003)
+
+Measured: ~230 bytes per candle including indexes. The 15-symbol universe produces about
+3.7 million 1-minute candles per year of history (24-hour forex/crypto dominate), about
+850 MB/year. The free plan's 500 MB holds roughly 7 months. Options before large imports:
+upgrade to Pro (8 GB included), limit history depth, or import only session windows for
+US stocks (saves ~15%). Decide before the importer runs at scale (TASK 008–012).
+

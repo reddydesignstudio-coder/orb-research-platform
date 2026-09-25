@@ -1,6 +1,7 @@
 import rawConfig from './app-config.js';
 import { validateConfig } from './config.js';
 import { resolveRoute } from './router.js';
+import { checkHealth } from './health.js';
 import { createLayout } from './views/layout.js';
 import { renderPlannedPage, renderNotFound, renderConfigBanner } from './views/pages.js';
 
@@ -28,6 +29,15 @@ function render() {
     document.title = 'Not found · ORB Research';
   }
 }
+
+// Live database status in the header. Never blocks rendering; any failure is
+// shown in the pill (and its tooltip), not hidden.
+checkHealth(config)
+  .then(layout.setHealth)
+  .catch((err) => {
+    console.error('[health] check failed:', err);
+    layout.setHealth({ state: 'error', label: 'Status unknown', detail: String(err) });
+  });
 
 window.addEventListener('hashchange', () => {
   render();

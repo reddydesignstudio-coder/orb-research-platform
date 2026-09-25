@@ -1,3 +1,5 @@
+import { ICONS } from './icons.js';
+
 /**
  * Minimal DOM helper.
  *
@@ -20,4 +22,33 @@ export function h(tag, attrs = {}, children = []) {
     el.append(typeof child === 'string' ? document.createTextNode(child) : child);
   }
   return el;
+}
+
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+/**
+ * Inline SVG icon from icons.js. Decorative: hidden from screen readers.
+ * @param {string} name
+ * @param {string} [className]
+ * @returns {SVGSVGElement}
+ */
+export function icon(name, className = 'icon') {
+  const paths = ICONS[name];
+  if (!paths) throw new Error(`Unknown icon: ${name}`);
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('fill', 'none');
+  svg.setAttribute('stroke', 'currentColor');
+  svg.setAttribute('stroke-width', '1.8');
+  svg.setAttribute('stroke-linecap', 'round');
+  svg.setAttribute('stroke-linejoin', 'round');
+  svg.setAttribute('aria-hidden', 'true');
+  svg.setAttribute('focusable', 'false');
+  svg.setAttribute('class', className);
+  for (const d of paths) {
+    const p = document.createElementNS(SVG_NS, 'path');
+    p.setAttribute('d', d);
+    svg.append(p);
+  }
+  return svg;
 }
