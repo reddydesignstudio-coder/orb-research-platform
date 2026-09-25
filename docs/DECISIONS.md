@@ -81,3 +81,25 @@ timezone and deployment decisions require owner approval (INSTRUCTIONS.md §4).
   (variable names, no values).
 * **Reason:** the Supabase CLI could not be installed in the build sandbox, and a hand-written
   `config.toml` that was never run by the CLI would be unverified.
+
+## D-007 — GitHub Actions: CI and Pages deployment
+
+* **Date:** 2026-09-25
+* **Task:** Between TASK 002 and TASK 003 (owner asked to push to GitHub and test there)
+* **Type:** Deployment (implements the specified GitHub Pages hosting; resolves SR-18)
+* **Decision:**
+  * `.github/workflows/ci.yml` runs `npm run check` on every push and pull request, and
+    `npm run check:supabase` as a separate job (visible failure, does not block deploys).
+  * `.github/workflows/pages.yml` runs the checks, then publishes `frontend/` to GitHub Pages
+    on every push to `main`. No build step; the published files are the tested files.
+* **Manual step (owner):** repository Settings → Pages → Source: **GitHub Actions**.
+* **Note:** GitHub Pages on a free GitHub plan requires a public repository.
+
+## D-008 — Supabase project connected (public values only)
+
+* **Date:** 2026-09-25
+* **Type:** Configuration
+* **Decision:** `frontend/js/app-config.js` holds the project URL and the publishable key
+  (`sb_publishable_…`). Both are public by design. Data access is controlled by Row Level
+  Security from TASK 003. No secret key, service-role key or database password is stored
+  anywhere in the repository.

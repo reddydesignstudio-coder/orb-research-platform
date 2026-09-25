@@ -33,7 +33,7 @@ Status values: `OPEN` (needs an owner decision), `NOTED` (informational, no deci
 | SR-15 | Twelve Data plan limits and API key (manual step) | TASK 006, 007, 012 | OPEN |
 | SR-16 | Where shared calculation code lives (browser + Edge Functions) | TASK 005, 013, 016 | OPEN |
 | SR-17 | No task explicitly builds the Dashboard, Data and Settings pages | TASK 015, 021 | OPEN |
-| SR-18 | GitHub Pages cannot publish from `frontend/` directly | TASK 029 | OPEN |
+| SR-18 | GitHub Pages cannot publish from `frontend/` directly | TASK 029 | RESOLVED (D-007) |
 
 ---
 
@@ -168,7 +168,7 @@ of their own, and ORB Research has engine tasks (016–018) but no UI task. The 
 placeholders cite the closest related tasks. Proposed: fold Data into TASK 015, Dashboard into
 TASK 021, and add Settings and ORB Research UI to the relevant tasks — or add new tasks.
 
-### SR-18 — GitHub Pages publishing source  — OPEN (added in TASK 002)
+### SR-18 — GitHub Pages publishing source  — RESOLVED by D-007
 
 GitHub Pages "deploy from a branch" publishes only the repository root or `/docs`. This repo
 keeps the site in `frontend/` (and `/docs` holds engineering notes). Options: a GitHub Actions

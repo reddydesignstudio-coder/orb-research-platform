@@ -15,9 +15,11 @@
  * `validateConfig` in config.js rejects any other field and any key that
  * is a service-role or secret key, and the app refuses to start with it.
  *
- * Both values stay empty until the Supabase project exists (TASK 003+).
+ * Values: Supabase project "orb-research" (added 2026-09-25). The key is the
+ * PUBLISHABLE key (sb_publishable_…), which Supabase designs to be public.
+ * Access to data is controlled by Row Level Security (TASK 003), not by this key.
  */
 export default Object.freeze({
-  supabaseUrl: '',
-  supabaseAnonKey: '',
+  supabaseUrl: 'https://mfsdctxhtinldnkffgbv.supabase.co',
+  supabaseAnonKey: 'sb_publishable_rG-IFq7XZ0UO80-wufMf5w_58VnoIyD',
 });

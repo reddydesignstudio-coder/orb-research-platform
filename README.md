@@ -89,6 +89,17 @@ npm run check    # verify + test — run before every commit
 
 `npm run dev` uses port 5173; set another with `PORT=8080 npm run dev`.
 
+`npm run check:supabase` confirms the Supabase project in `app-config.js` is reachable and
+accepts the publishable key (needs network access to `*.supabase.co`).
+
+### GitHub
+
+* **CI** (`.github/workflows/ci.yml`): `npm run check` and the Supabase connectivity check on
+  every push and pull request.
+* **Pages** (`.github/workflows/pages.yml`): after checks pass, `frontend/` is published to
+  GitHub Pages on every push to `main`. One-time setup: Settings → Pages → Source:
+  **GitHub Actions**.
+
 ### Configuration
 
 | What | Where | Committed? |

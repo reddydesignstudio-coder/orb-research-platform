@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## Supabase + GitHub setup — 2026-09-25
+
+Added
+
+* Supabase project URL and publishable key in `frontend/js/app-config.js` (public values).
+* `scripts/check-supabase.mjs` / `npm run check:supabase` — connectivity check using public values.
+* `.github/workflows/ci.yml` — checks on every push/PR.
+* `.github/workflows/pages.yml` — deploy `frontend/` to GitHub Pages after checks pass.
+* Decisions D-007, D-008. SR-18 resolved.
+
 ## TASK 002 — Development Environment — 2026-09-25
 
 Added
