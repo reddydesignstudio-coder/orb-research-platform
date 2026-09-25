@@ -6,47 +6,10 @@
 \set ON_ERROR_STOP on
 set client_min_messages = notice;
 
-create schema t;
-
--- Expect a statement to fail with a specific SQLSTATE. The statement runs in
--- a sub-transaction, so its effects are undone either way.
-create function t.expect_error(label text, stmt text, expected_state text)
-returns void language plpgsql as $$
-declare
-  got text;
-  msg text;
-begin
-  begin
-    execute stmt;
-  exception when others then
-    got := sqlstate;
-    msg := sqlerrm;
-  end;
-  if got is null then
-    raise exception 'FAIL %: expected error % but the statement succeeded', label, expected_state;
-  elsif got <> expected_state then
-    raise exception 'FAIL %: expected error %, got % (%)', label, expected_state, got, msg;
-  end if;
-  raise notice 'PASS %', label;
-end;
-$$;
-
-create function t.check(label text, condition boolean)
-returns void language plpgsql as $$
-begin
-  if condition is distinct from true then
-    raise exception 'FAIL %', label;
-  end if;
-  raise notice 'PASS %', label;
-end;
-$$;
-
--- Test roles must be able to call the helpers.
-grant usage on schema t to anon, authenticated, service_role;
-grant execute on all functions in schema t to anon, authenticated, service_role;
+-- Helpers t.expect_error / t.check come from tests/db/_helpers.sql (applied by the runner).
 
 -- --------------------------------------------------------------------
--- Fixtures (test data only — not the real universe, that is TASK 004)
+-- Fixtures (test data only — the real universe is seeded by migration, TASK 004)
 -- --------------------------------------------------------------------
 insert into public.symbols (symbol, display_name, market, provider, provider_symbol, session_timezone, session_start, session_end)
 values

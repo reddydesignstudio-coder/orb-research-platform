@@ -23,8 +23,8 @@ Status values: `OPEN` (needs an owner decision), `NOTED` (informational, no deci
 | SR-05 | `data_quality` has no field for OHLC validity / timestamp correctness | TASK 003, 014 | RESOLVED (D-009) |
 | SR-06 | `trades` has no exit reason (TP / SL / time exit / ambiguous) | TASK 003, 019 | RESOLVED (D-009) |
 | SR-07 | `candles.timestamp_et` for non-US markets | TASK 003 | RESOLVED (D-009) |
-| SR-08 | Initial 15 symbols not named | TASK 004 | OPEN |
-| SR-09 | Sessions for forex, crypto and gold are not defined | TASK 004, 013, 016 | OPEN |
+| SR-08 | Initial 15 symbols not named | TASK 004 | RESOLVED (D-014) |
+| SR-09 | Sessions for forex, crypto and gold are not defined | TASK 004, 013, 016 | OPEN (symbols seeded without sessions, D-014) |
 | SR-10 | US market holiday calendar source not specified | TASK 013 | OPEN |
 | SR-11 | Breakout trigger and entry-price convention | TASK 017, 019 | OPEN |
 | SR-12 | Candle that breaks both ORB High and ORB Low | TASK 017 | OPEN |
@@ -92,7 +92,7 @@ session timezone may differ (`symbols.session_timezone`). Options: keep `timesta
 symbols as a convenience column derived from `timestamp_utc` by the timezone database, or
 make it a generated column. `timestamp_utc` remains the canonical value in all options.
 
-### SR-08 — Initial universe  — OPEN
+### SR-08 — Initial universe  — RESOLVED (D-014)
 
 The spec fixes the counts (8 US stocks, 4 forex, 2 crypto, 1 XAUUSD) but not the tickers.
 `RELATIONSHIPS.md` uses SPY, AAPL, NVDA, MSFT, AMD as examples. Needed: the 15 symbols

@@ -9,7 +9,8 @@
 # In GitHub Actions a postgres service container provides this.
 #
 # Steps: create a fresh database → Supabase role bootstrap (test-only) →
-# every migration in order → every tests/db/*.test.sql → drop the database.
+# every migration in order → test helpers → every tests/db/*.test.sql (in
+# file-name order) → drop the database.
 # This NEVER touches the real Supabase project.
 # ------------------------------------------------------------------
 set -eu
@@ -25,7 +26,11 @@ PSQL="psql -X -q -v ON_ERROR_STOP=1 --no-psqlrc"
 cleanup() { $PSQL -d postgres -c "drop database if exists $DB" >/dev/null 2>&1 || true; }
 trap cleanup EXIT INT TERM
 
-echo "Server: $(psql -X -tAc 'show server_version' -d postgres)"
+VERSION=$(psql -X -tAc 'show server_version' -d postgres) || {
+  echo "FAIL cannot connect to PostgreSQL (PGHOST=${PGHOST:-unset} PGPORT=${PGPORT:-5432} PGUSER=${PGUSER:-unset})" >&2
+  exit 1
+}
+echo "Server: PostgreSQL $VERSION"
 $PSQL -d postgres -c "create database $DB"
 
 echo "→ test bootstrap: tests/db/00_supabase_roles.sql"
@@ -39,6 +44,9 @@ for m in supabase/migrations/*.sql; do
   count=$((count + 1))
 done
 [ "$count" -gt 0 ] || { echo "FAIL no migrations found" >&2; exit 1; }
+
+echo "→ test helpers: tests/db/_helpers.sql"
+$PSQL -d "$DB" -f tests/db/_helpers.sql
 
 LOG=$(mktemp)
 trap 'rm -f "$LOG"; cleanup' EXIT INT TERM

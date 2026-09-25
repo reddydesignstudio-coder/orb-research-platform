@@ -150,3 +150,36 @@ timezone and deployment decisions require owner approval (INSTRUCTIONS.md §4).
   is always derived. Override only inside an explicitly approved transaction.
 * **Reason:** RULES.md — never shift timestamps, never silently delete, no destructive
   operation without approval; research reproducibility.
+
+## D-014 — Initial research universe (15 symbols)
+
+* **Date:** 2026-09-25 · **Task:** TASK 004 · **Approved by:** project owner
+* **Seeded by:** `supabase/migrations/20260925150000_seed_initial_universe.sql` (insert-if-missing;
+  never overwrites later configuration changes).
+
+| Market | Symbols (Twelve Data symbol = same) | Session |
+|--------|-------------------------------------|---------|
+| US (8) | SPY, QQQ, AAPL, MSFT, NVDA, AMD, TSLA, META | America/New_York 09:30 → 11:00 (exclusive; 90 candles) |
+| Forex (4) | EUR/USD, GBP/USD, USD/JPY, AUD/USD | not defined yet (SR-09) |
+| Crypto (2) | BTC/USD, ETH/USD | not defined yet (SR-09) |
+| Gold (1) | XAU/USD | not defined yet (SR-09) |
+
+* SPY and QQQ are index ETFs, stored with market `us_stock`; SPY is the reference symbol in
+  RELATIONSHIPS.md. The owner considered adding the NASDAQ index and chose QQQ (tracks the
+  Nasdaq-100, available on every plan) instead.
+* Non-US symbols use timezone `UTC` as a placeholder with no session hours, so no ORB or
+  backtest runs for them until their sessions are agreed.
+* `session_end` is an exclusive boundary (documented on the column).
+
+## D-015 — Updates delivered as one package, applied by a workflow
+
+* **Date:** 2026-09-25 · **Type:** Development workflow · **Requested by:** owner (uses the GitHub website only)
+* **Problem:** uploading many files through the GitHub website flattens folders when files
+  are selected individually and skips hidden folders such as `.github`.
+* **Decision:** each update is one file, `orb-update.zip` — a full, tested snapshot of the
+  project without `.github/` (built by `scripts/make-update.sh`). The owner uploads the zip
+  itself to the top level. `.github/workflows/apply-update.yml` validates it, runs
+  `npm run check` on it (nothing is applied on failure), makes the repository match it
+  exactly (except `.git/` and `.github/`), commits, and starts CI, Pages and database deploy.
+* Workflow files (`.github/workflows/*`) still need a direct upload into that folder, because
+  GitHub does not allow workflows to change workflow files.

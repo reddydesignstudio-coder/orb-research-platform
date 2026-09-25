@@ -1,3 +1,0 @@
-# Normalize line endings so Windows and macOS/Linux checkouts produce identical files.
-* text=auto eol=lf
-*.sh text eol=lf
