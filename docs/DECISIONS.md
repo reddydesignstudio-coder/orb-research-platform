@@ -218,3 +218,32 @@ timezone and deployment decisions require owner approval (INSTRUCTIONS.md §4).
     is possible.
   * The shared contract checker (`tests/providers/provider-contract.js`) returns a list of
     violations; every adapter's tests must assert it is empty.
+
+## D-018 — Import raw (unadjusted) prices
+
+* **Date:** 2026-09-25 · **Approved by:** project owner · **Task:** TASK 006
+* **Decision:** Twelve Data requests are sent with `adjust=none`. Twelve Data's default
+  (`adjust=splits`) rewrites past prices after a split, which would make newly imported candles
+  disagree with the immutable candles already stored. Raw prices never change afterwards.
+  ORB levels, stops, targets and R-multiples are computed within one session, so a split between
+  sessions does not affect them.
+
+## D-019 — Twelve Data plan and adapter design (TASK 006)
+
+* **Date:** 2026-09-25 · **Task:** TASK 006 · **Type:** Implementation
+* **Owner's plan:** Basic (free), confirmed by the owner. Its limits (8 credits/min, 800/day,
+  daily reset 00:00 UTC, 1 credit per time_series request) are verified capabilities. Other
+  plans are refused by the adapter until they are verified.
+* **Location:** `supabase/functions/_shared/adapters/twelve_data/`, outside the provider-neutral
+  layer, which stays free of provider names (neutrality test).
+* **Request:** API key in the `Authorization: apikey …` header (documented as recommended), never
+  in the URL; `timezone=UTC` so dates sent and datetimes received are UTC; `order=asc`;
+  `outputsize=5000`; `end_date` = the exclusive range end.
+* **Range completeness:** Twelve Data has no "more data" signal and does not document whether
+  `end_date` is inclusive. A range of at most 4 999 minutes therefore can never exceed the
+  5 000-row page, even with one extra boundary bar, so it counts as answered (PROVIDERS.md §6.2).
+  A full page is reported as truncated; because the documentation does not say which end of a
+  range a truncated response keeps, the remainder is not guessed — the range is split.
+* **Unverified behaviour kept safe:** the "no data" message wording and a daily-limit 429 wording
+  are matched by patterns; if they don't match, the error falls back to UNKNOWN (shown to the
+  owner) or RATE_LIMITED (retried next minute). Both are listed for the live check.

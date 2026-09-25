@@ -138,8 +138,21 @@ Implement historical 1-minute candle retrieval.
 Status:
 
 ```text
-TODO
+COMPLETE — 2026-09-25
 ```
+
+Delivered: `supabase/functions/_shared/adapters/twelve_data/` (request building, UTC
+normalization, range completeness, error mapping, Basic-plan capabilities) and
+`tests/adapters/` (21 tests incl. the shared provider contract). PROVIDERS.md §3 verified
+against the official documentation. Decisions D-018 (raw prices, `adjust=none`), D-019.
+
+Verified: 116/116 unit tests pass in Node and the provider/adapter tests pass in Deno 2.9.7;
+mutation checks confirmed the tests catch a wrong adjustment, zero-filled volume, a missed
+full page, an accepted foreign instrument and a missing auth header.
+
+Carry-forward to TASK 007: the live check with the owner's key (PROVIDERS.md P-5). Gold
+(XAU/USD) is expected to be refused on the Basic plan; it will be reported as
+PLAN_RESTRICTED, never worked around.
 
 ---
 

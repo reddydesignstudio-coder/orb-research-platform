@@ -40,7 +40,7 @@ The specification files live at the repository root because `CLAUDE.md` and
 | 6 | [`DATABASE.md`](DATABASE.md) | Tables, uniqueness, indexes |
 | 7 | [`ORB_SPEC.md`](ORB_SPEC.md) | ORB methodology, entry, SL/TP, time exit, ambiguous candles |
 | 8 | [`RELATIONSHIPS.md`](RELATIONSHIPS.md) | Cross-symbol association analysis |
-| 9 | [`PROVIDERS.md`](PROVIDERS.md) | Market-data providers — **provisional**, see `docs/SPEC_REVIEW.md` |
+| 9 | [`PROVIDERS.md`](PROVIDERS.md) | Market-data providers — approved (D-016); Twelve Data facts verified in TASK 006 |
 | 10 | [`ROADMAP.md`](ROADMAP.md) | Phases |
 | 11 | [`TASKS.md`](TASKS.md) | Ordered task queue and status |
 
@@ -65,7 +65,8 @@ Supporting engineering docs live in [`docs/`](docs/README.md).
 │   ├── config.toml                      Supabase CLI project config
 │   ├── migrations/                      PostgreSQL schema migrations (applied by CI)
 │   └── functions/                       Supabase Edge Functions      (TASK 007+)
-│       └── _shared/providers/           MarketDataProvider layer     (TASK 005)
+│       ├── _shared/providers/           MarketDataProvider layer     (TASK 005)
+│       └── _shared/adapters/twelve_data/ Twelve Data adapter         (TASK 006)
 ├── tests/                               node:test unit tests; tests/db/ SQL schema tests
 └── scripts/
     ├── serve.mjs                        Local dev server

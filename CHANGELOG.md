@@ -1,5 +1,20 @@
 # CHANGELOG
 
+## TASK 006 — Twelve Data Adapter — 2026-09-25
+
+Added
+
+* `supabase/functions/_shared/adapters/twelve_data/` — `adapter.js` (time_series request, key in
+  header only, UTC dates, raw prices, meta check, completeness), `capabilities.js` (verified
+  facts with sources; Basic plan), `errors.js` (error mapping, minute/daily waits), `mod.js`.
+* `tests/adapters/` — 21 tests with synthetic responses in the documented format; no live calls.
+* PROVIDERS.md §3 filled in from the official documentation; open items updated.
+* Decisions D-018 (raw, unadjusted prices), D-019.
+
+Not changed
+
+* Shared provider layer, database, importer and frontend unchanged.
+
 ## TASK 005 — Provider Interface — 2026-09-25
 
 Added
