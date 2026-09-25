@@ -1,43 +1,35 @@
-# tests/
+# frontend/
 
-Unit tests using Node's built-in test runner (`node:test`, `node:assert`). No packages.
+Static site deployed to **GitHub Pages**. No build step — these files are served exactly as
+they are (docs/DECISIONS.md D-003).
 
-```bash
-npm test
+```text
+index.html            Entry page; sets viewport and Content-Security-Policy
+.nojekyll             Tells GitHub Pages to serve files as-is
+css/app.css           Styles: mobile-first, sidebar from 900px, light/dark
+js/main.js            Boot: validate config, build layout, render current route
+js/routes.js          The seven sections (single source for nav + routing)
+js/router.js          Hash routing (#/backtest) — pure, unit-tested
+js/config.js          Validates public config; rejects secrets
+js/app-config.js      PUBLIC config: Supabase URL + publishable key only
+js/health.js          Live database status (header pill)
+js/icons.js           In-repo line icons (no icon font / CDN)
+js/dom.js             Element + SVG icon helpers (textContent only, never innerHTML)
+js/views/layout.js    Gradient header, status pill, section nav, footer disclaimer
+js/views/pages.js     Page hero, planned card, Dashboard module grid, not-found, config banner
 ```
 
-Files must be named `*.test.js`.
+Each section has its own colour and icon (`tone`, `icon` in routes.js). Green and red are
+reserved for bullish / bearish results and are never section colours.
 
-| File | Covers |
-|------|--------|
-| `router.test.js` | Hash → route resolution, unknown routes, links |
-| `routes.test.js` | All seven PROJECT.md §16 sections exist, unique ids/paths, task references |
-| `config.test.js` | Public config guard: rejects service-role JWT, `sb_secret_` keys, extra fields, http URLs |
-| `health.test.js` | Database status: online / paused / key rejected / offline, no request when unconfigured |
-| `serve.test.js` | Dev server: MIME types, 404/405, path-traversal protection |
-| `migrations.test.js` | Migration names, no unapproved destructive SQL, RLS on every new table |
-| `frontend-security.test.js` | No secrets, provider calls, browser storage or third-party scripts in `frontend/`; CSP present |
+Sections (PROJECT.md §16): Dashboard, Data, Admin, ORB Research, Backtest, Relationships,
+Settings. Each currently says "Not built yet" and names the task that builds it.
 
-## Database tests — `npm run test:db`
+Rules:
 
-`tests/db/*.test.sql` run by `scripts/test-db.sh` on a fresh throwaway database with all
-migrations applied (`00_supabase_roles.sql` recreates Supabase's roles for plain PostgreSQL).
-Covers constraints, duplicates, DST-aware `timestamp_et`, candle immutability, the
-one-trade-per-session rule, the ambiguous-candle rule, generated relationship columns, and
-RLS / privileges as `anon`, `authenticated` and `service_role`.
+* Only the public Supabase URL and anon/publishable key may appear here.
+* Never provider API keys or the Supabase service-role/secret key.
+* Never browser storage as the historical database.
+* No third-party scripts or CDNs (blocked by the CSP and by tests).
 
-Needs a PostgreSQL server and `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD`. CI provides one.
-
-Test keys are assembled at runtime so no credential-shaped string is committed.
-
-Required coverage over the project (CLAUDE.md — TESTING, INSTRUCTIONS.md §6), added by later
-tasks:
-
-* database constraints
-* timezone conversion and DST
-* session boundaries (09:30–10:59 ET, 90 candles)
-* candle normalization and validation
-* importer, checkpoints and duplicates
-* ORB calculation and breakout detection
-* TP, SL, time exit and ambiguous candles
-* relationship analysis
+Run locally with `npm run dev` from the repository root.

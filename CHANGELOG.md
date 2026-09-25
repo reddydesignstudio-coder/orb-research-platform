@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## One-file website updates — 2026-09-25
+
+* `.github/workflows/apply-update.yml` + `scripts/make-update.sh`: updates arrive as one
+  `orb-update.zip`, tested before it is applied, applied as an exact snapshot (D-015).
+
 ## TASK 004 — Seed Symbols — 2026-09-25
 
 * `supabase/migrations/20260925150000_seed_initial_universe.sql` — 15 approved symbols (D-014),

@@ -1,44 +1,28 @@
-# tests/
+# Engineering Documentation
 
-Unit tests using Node's built-in test runner (`node:test`, `node:assert`). No packages.
+The **specification** is at the repository root (see the root `README.md`).
+This folder holds engineering notes that support it.
 
-```bash
-npm test
-```
+| File | Purpose |
+|------|---------|
+| [`SPEC_REVIEW.md`](SPEC_REVIEW.md) | Conflicts, gaps and open questions found in the spec, with the task each one blocks |
+| [`DECISIONS.md`](DECISIONS.md) | Log of decisions that interpret or extend the spec |
 
-Files must be named `*.test.js`.
+---
 
-| File | Covers |
-|------|--------|
-| `router.test.js` | Hash → route resolution, unknown routes, links |
-| `routes.test.js` | All seven PROJECT.md §16 sections exist, unique ids/paths, task references |
-| `config.test.js` | Public config guard: rejects service-role JWT, `sb_secret_` keys, extra fields, http URLs |
-| `health.test.js` | Database status: online / paused / key rejected / offline, no request when unconfigured |
-| `serve.test.js` | Dev server: MIME types, 404/405, path-traversal protection |
-| `check-db-url.test.js` | SUPABASE_DB_URL format check: placeholder, brackets, whitespace, special chars, wrong host/port/user — without printing the password |
-| `migrations.test.js` | Migration names, no unapproved destructive SQL, RLS on every new table |
-| `frontend-security.test.js` | No secrets, provider calls, browser storage or third-party scripts in `frontend/`; CSP present |
+## Folder purposes
 
-## Database tests — `npm run test:db`
+| Folder | Purpose | First task |
+|--------|---------|-----------|
+| `frontend/` | Static GitHub Pages site: Dashboard, Data, Admin, ORB Research, Backtest, Relationships, Settings. Uses only the public Supabase URL and anon key. | TASK 002 |
+| `supabase/migrations/` | Ordered PostgreSQL migrations: tables, constraints, indexes, RLS. The database is the source of truth. | TASK 003 |
+| `supabase/functions/` | Supabase Edge Functions. The only place provider API keys are used (read from Edge Function secrets). | TASK 007 |
+| `tests/` | Automated tests (timezone/DST, sessions, candles, importer, ORB, TP/SL, relationships). | TASK 002 |
+| `scripts/` | Repository and development scripts. | TASK 001 |
+| `docs/` | Engineering notes (this folder). | TASK 001 |
 
-`tests/db/*.test.sql` (with shared helpers in `tests/db/_helpers.sql`) run by `scripts/test-db.sh` on a fresh throwaway database with all
-migrations applied (`00_supabase_roles.sql` recreates Supabase's roles for plain PostgreSQL).
-`05_universe.test.sql` checks the seeded 15-symbol universe; `10_schema.test.sql` covers constraints, duplicates, DST-aware `timestamp_et`, candle immutability, the
-one-trade-per-session rule, the ambiguous-candle rule, generated relationship columns, and
-RLS / privileges as `anon`, `authenticated` and `service_role`.
+## Rules for adding documentation
 
-Needs a PostgreSQL server and `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD`. CI provides one.
-
-Test keys are assembled at runtime so no credential-shaped string is committed.
-
-Required coverage over the project (CLAUDE.md — TESTING, INSTRUCTIONS.md §6), added by later
-tasks:
-
-* database constraints
-* timezone conversion and DST
-* session boundaries (09:30–10:59 ET, 90 candles)
-* candle normalization and validation
-* importer, checkpoints and duplicates
-* ORB calculation and breakout detection
-* TP, SL, time exit and ambiguous candles
-* relationship analysis
+* If an implementation changes behaviour, update the relevant root spec file **and** add an
+  entry to `DECISIONS.md` if it interprets or extends the spec.
+* Never put secrets, keys or example keys that look real in any document.

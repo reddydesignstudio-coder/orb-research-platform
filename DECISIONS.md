@@ -170,3 +170,16 @@ timezone and deployment decisions require owner approval (INSTRUCTIONS.md §4).
 * Non-US symbols use timezone `UTC` as a placeholder with no session hours, so no ORB or
   backtest runs for them until their sessions are agreed.
 * `session_end` is an exclusive boundary (documented on the column).
+
+## D-015 — Updates delivered as one package, applied by a workflow
+
+* **Date:** 2026-09-25 · **Type:** Development workflow · **Requested by:** owner (uses the GitHub website only)
+* **Problem:** uploading many files through the GitHub website flattens folders when files
+  are selected individually and skips hidden folders such as `.github`.
+* **Decision:** each update is one file, `orb-update.zip` — a full, tested snapshot of the
+  project without `.github/` (built by `scripts/make-update.sh`). The owner uploads the zip
+  itself to the top level. `.github/workflows/apply-update.yml` validates it, runs
+  `npm run check` on it (nothing is applied on failure), makes the repository match it
+  exactly (except `.git/` and `.github/`), commits, and starts CI, Pages and database deploy.
+* Workflow files (`.github/workflows/*`) still need a direct upload into that folder, because
+  GitHub does not allow workflows to change workflow files.
