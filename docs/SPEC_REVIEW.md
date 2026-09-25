@@ -1,0 +1,149 @@
+# SPECIFICATION REVIEW
+
+Findings from the full read of the specification during TASK 001.
+
+This file **does not change** any rule, methodology or architecture. It records conflicts,
+gaps and open questions so each one is resolved explicitly — by the project owner — before
+the task that depends on it. Per `CLAUDE.md` (FINAL RULE), non-trivial rules are not
+redefined silently.
+
+Status values: `OPEN` (needs an owner decision), `NOTED` (informational, no decision needed),
+`RESOLVED` (decision recorded in `docs/DECISIONS.md`).
+
+---
+
+## Summary
+
+| ID | Topic | Blocks | Status |
+|----|-------|--------|--------|
+| SR-01 | `PROVIDERS.md` content is a copy of `RELATIONSHIPS.md` | TASK 005 | OPEN |
+| SR-02 | `PROJECT.md` / `INSTRUCTIONS.md` were not uploaded as files | — | NOTED |
+| SR-03 | ROADMAP phase numbering differs from TASKS phase numbering | — | NOTED |
+| SR-04 | Index named `relationships(...)`; table is `orb_relationships` | TASK 003 | OPEN |
+| SR-05 | `data_quality` has no field for OHLC validity / timestamp correctness | TASK 003, 014 | OPEN |
+| SR-06 | `trades` has no exit reason (TP / SL / time exit / ambiguous) | TASK 003, 019 | OPEN |
+| SR-07 | `candles.timestamp_et` for non-US markets | TASK 003 | OPEN |
+| SR-08 | Initial 15 symbols not named | TASK 004 | OPEN |
+| SR-09 | Sessions for forex, crypto and gold are not defined | TASK 004, 013, 016 | OPEN |
+| SR-10 | US market holiday calendar source not specified | TASK 013 | OPEN |
+| SR-11 | Breakout trigger and entry-price convention | TASK 017, 019 | OPEN |
+| SR-12 | Candle that breaks both ORB High and ORB Low | TASK 017 | OPEN |
+| SR-13 | Time-exit price at 11:00 ET | TASK 019 | OPEN |
+| SR-14 | Access control for Admin / GET DATA | TASK 007, 015 | OPEN |
+| SR-15 | Twelve Data plan limits and API key (manual step) | TASK 006, 007, 012 | OPEN |
+
+---
+
+## Details
+
+### SR-01 — `PROVIDERS.md` content is a copy of `RELATIONSHIPS.md`  — OPEN
+
+The `Providers` document in the Claude Project is byte-for-byte identical to `Relationships`.
+The real provider specification is therefore missing.
+
+Action taken in TASK 001: `PROVIDERS.md` was created as a **provisional** file that only
+collects provider requirements already stated elsewhere (each line cites its source). No new
+provider behaviour was invented.
+
+Needed: the original `PROVIDERS.md`. Required before TASK 005.
+
+### SR-02 — `PROJECT.md` / `INSTRUCTIONS.md` not uploaded as files  — NOTED
+
+`CLAUDE.md` lists both. Their content exists as the Claude Project description and the Claude
+Project instructions. Both were copied verbatim into the repository.
+
+### SR-03 — Phase numbering  — NOTED
+
+`ROADMAP.md` uses phases 0–11 (e.g. Phase 2 = Symbols); `TASKS.md` uses phases 0–9
+(e.g. Phase 2 = Provider). Content is consistent; only numbering differs. `TASKS.md` governs
+the order of work (INSTRUCTIONS.md §2).
+
+### SR-04 — Relationship index name  — OPEN (low)
+
+`DATABASE.md` → INDEXES lists `relationships(reference_symbol_id, target_symbol_id, session_date)`.
+The only such table is `orb_relationships`. Proposed reading: the index belongs on
+`orb_relationships`. Confirm at TASK 003.
+
+### SR-05 — Recording OHLC validity and timestamp correctness  — OPEN
+
+`PROJECT.md` §9 requires validating OHLC validity and timestamp correctness per session.
+The `data_quality` table has no column for either result. Options: add columns
+(e.g. `invalid_ohlc_candles`, `invalid_timestamp_candles`) or encode them in `status`.
+Adding columns changes the database design, so it needs approval.
+
+### SR-06 — Trade exit reason  — OPEN
+
+`trades` has `result` and `r_multiple` but no exit reason. The backtest must report average
+time to TP and average time to SL, and the ambiguous-candle convention (default LOSS) should
+be visible, not hidden. An `exit_reason` column (`TP`, `SL`, `TIME`, `AMBIGUOUS_SL`) would make
+this explicit. Database change → needs approval.
+
+Related: `trades` has no `created_at`, unlike other tables.
+
+### SR-07 — `candles.timestamp_et` for non-US markets  — OPEN
+
+Storing an ET timestamp is natural for US stocks. For forex, crypto and gold the relevant
+session timezone may differ (`symbols.session_timezone`). Options: keep `timestamp_et` for all
+symbols as a convenience column derived from `timestamp_utc` by the timezone database, or
+make it a generated column. `timestamp_utc` remains the canonical value in all options.
+
+### SR-08 — Initial universe  — OPEN
+
+The spec fixes the counts (8 US stocks, 4 forex, 2 crypto, 1 XAUUSD) but not the tickers.
+`RELATIONSHIPS.md` uses SPY, AAPL, NVDA, MSFT, AMD as examples. Needed: the 15 symbols
+(and their Twelve Data symbols). Required for TASK 004.
+
+### SR-09 — Non-US sessions  — OPEN
+
+Only the US stock session is defined (America/New_York, 09:30–10:59, 90 candles, time exit
+11:00). For forex, crypto and XAUUSD the spec does not define: session timezone, ORB anchor
+time, window length, time exit, or what counts as a closed market. The `symbols` table
+already carries `session_timezone`, `session_start`, `session_end`, so this is configuration —
+but the values are a methodology decision. Required before these markets are validated or
+backtested.
+
+### SR-10 — US market holiday calendar  — OPEN
+
+"Weekends and market holidays are not missing data." The source of the NYSE holiday and
+early-close calendar is not specified (static maintained table vs. a library vs. a provider
+endpoint). Early-close days (13:00 ET) do not affect the 09:30–10:59 window, but full-day
+holidays do.
+
+### SR-11 — Breakout trigger and entry price  — OPEN
+
+`ORB_SPEC.md`: "First valid 1-minute breakout. The entry convention must be deterministic and
+documented. No look-ahead." Not yet defined:
+
+* trigger — 1-minute candle **high/low trades through** the level, or candle **closes** beyond it;
+* strictness — strictly greater than ORB High, or greater-or-equal;
+* entry price — the ORB level (stop-order fill), the breakout candle close, or the next candle open;
+* first eligible candle — the candle immediately after the ORB period.
+
+Each option is look-ahead-safe if applied consistently, but they produce different results,
+so the choice is a methodology decision.
+
+### SR-12 — Candle that breaks both sides  — OPEN
+
+A single 1-minute candle can exceed ORB High and ORB Low. The spec has a conservative rule for
+TP/SL ambiguity, but not for a double-sided breakout. Options: no trade for that session, or
+a documented conservative rule.
+
+### SR-13 — Time-exit price  — OPEN
+
+Time exit is 11:00 ET, and 11:00 is excluded from the opening-window dataset. Exit price
+options: close of the 10:59 candle (inside the window), or open of the 11:00 candle
+(outside the window, requires importing it).
+
+### SR-14 — Access control for Admin / GET DATA  — OPEN
+
+The Supabase anon key is public by design. Without authentication, anyone who finds the site
+could trigger GET DATA and consume the provider quota, or call Edge Functions that write with
+service-role privileges. `ARCHITECTURE.md` §3 says "authentication if needed". Proposed:
+Supabase Auth for Admin actions plus RLS read-only access for research pages. Security
+architecture → needs approval before TASK 007.
+
+### SR-15 — Twelve Data plan and key  — OPEN (manual step)
+
+Rate-limit and history depth depend on the Twelve Data plan. The API key must be added by the
+owner as a Supabase Edge Function secret (never in the repo). Required before TASK 006 can be
+tested against the live API; adapter code can be written and tested against fixtures before that.
