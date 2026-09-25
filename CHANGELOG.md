@@ -1,5 +1,25 @@
 # CHANGELOG
 
+## TASK 002 — Development Environment — 2026-09-25
+
+Added
+
+* `package.json` — npm scripts `dev`, `test`, `verify`, `check`; no dependencies; Node ≥ 22.
+  `.nvmrc`.
+* Frontend shell (`frontend/`): responsive layout (phone tab bar, sidebar from 900px),
+  seven sections from PROJECT.md §16 as "Not built yet" pages, hash router, not-found page,
+  research disclaimer footer, light/dark theme, Content-Security-Policy, `.nojekyll`.
+* Public config guard (`frontend/js/config.js`) — rejects service-role/secret keys and any
+  extra field; UI shows an error banner.
+* `scripts/serve.mjs` — zero-dependency local dev server bound to 127.0.0.1.
+* Tests (27, `node:test`): router, routes, config guard, dev server, frontend security.
+* `supabase/functions/.env.example` — variable names only.
+* Decisions D-003 to D-006; spec review SR-16 to SR-18.
+
+Not changed
+
+* No methodology, database or architecture changes. No dependencies.
+
 ## TASK 001 — Repository Foundation — 2026-09-25
 
 Added

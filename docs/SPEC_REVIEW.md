@@ -31,6 +31,9 @@ Status values: `OPEN` (needs an owner decision), `NOTED` (informational, no deci
 | SR-13 | Time-exit price at 11:00 ET | TASK 019 | OPEN |
 | SR-14 | Access control for Admin / GET DATA | TASK 007, 015 | OPEN |
 | SR-15 | Twelve Data plan limits and API key (manual step) | TASK 006, 007, 012 | OPEN |
+| SR-16 | Where shared calculation code lives (browser + Edge Functions) | TASK 005, 013, 016 | OPEN |
+| SR-17 | No task explicitly builds the Dashboard, Data and Settings pages | TASK 015, 021 | OPEN |
+| SR-18 | GitHub Pages cannot publish from `frontend/` directly | TASK 029 | OPEN |
 
 ---
 
@@ -147,3 +150,28 @@ architecture → needs approval before TASK 007.
 Rate-limit and history depth depend on the Twelve Data plan. The API key must be added by the
 owner as a Supabase Edge Function secret (never in the repo). Required before TASK 006 can be
 tested against the live API; adapter code can be written and tested against fixtures before that.
+
+### SR-16 — Location of shared calculation code  — OPEN (added in TASK 002)
+
+The spec does not say where timezone, session, ORB and backtest calculations run: in Edge
+Functions, in PostgreSQL, or in the browser. Whichever it is, one implementation should be
+used everywhere so results cannot differ between screens. Supabase's documented convention is
+`supabase/functions/_shared/`. Plain ES modules there run in Deno and in Node tests. Using
+them in the browser as well depends on how the site is published (SR-18). Decide before the
+first calculation module (TASK 005 or 013).
+
+### SR-17 — Pages without a dedicated task  — OPEN (added in TASK 002)
+
+PROJECT.md §16 lists seven sections. TASKS.md has explicit UI tasks for Admin (015),
+Backtest (021) and Relationships (024). The Dashboard, Data and Settings pages have no task
+of their own, and ORB Research has engine tasks (016–018) but no UI task. The frontend
+placeholders cite the closest related tasks. Proposed: fold Data into TASK 015, Dashboard into
+TASK 021, and add Settings and ORB Research UI to the relevant tasks — or add new tasks.
+
+### SR-18 — GitHub Pages publishing source  — OPEN (added in TASK 002)
+
+GitHub Pages "deploy from a branch" publishes only the repository root or `/docs`. This repo
+keeps the site in `frontend/` (and `/docs` holds engineering notes). Options: a GitHub Actions
+workflow that publishes `frontend/` as the Pages artifact (recommended; standard, keeps
+layout), or moving the site. Deployment architecture → confirm at TASK 029 or earlier if a
+preview deployment is wanted.

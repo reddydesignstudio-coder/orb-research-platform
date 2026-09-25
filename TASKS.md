@@ -32,8 +32,19 @@ Create required package configuration, frontend structure and development script
 Status:
 
 ```text
-TODO
+COMPLETE — 2026-09-25
 ```
+
+Delivered: `package.json` (scripts only, no dependencies), frontend shell with the seven
+sections, hash router, public-config guard, CSP, `scripts/serve.mjs`, 27 unit tests,
+`supabase/functions/.env.example`. Decisions D-003–D-006.
+
+Verified: `npm run check` → PASS (27/27 tests). Headless Chromium with device emulation at
+iPhone (390px), iPad (820px) and desktop (1280px): no horizontal overflow, active tab visible,
+touch targets ≥ 44px on touch devices, no console errors. A service-role key in the config
+produced the error banner.
+
+Carry-forward: `supabase/config.toml` moves to TASK 003 (D-006). New open items SR-16–SR-18.
 
 ---
 

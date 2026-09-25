@@ -6,8 +6,8 @@ strategies across US stocks, forex, crypto and gold (XAUUSD).
 This is a research tool. It is not a live trading application, and historical results are
 never presented as a guarantee of future performance.
 
-> **Status:** Phase 0 — Foundation. No application code exists yet.
-> See [`TASKS.md`](TASKS.md) for current progress.
+> **Status:** Phase 0 — Foundation complete. The app shell runs locally; no market data,
+> database or calculations exist yet. See [`TASKS.md`](TASKS.md) for current progress.
 
 ---
 
@@ -56,12 +56,17 @@ Supporting engineering docs live in [`docs/`](docs/README.md).
 ├── README.md                            This file
 ├── CHANGELOG.md                         What changed, per task
 ├── docs/                                Engineering notes: spec review, decisions
-├── frontend/                            GitHub Pages frontend        (TASK 002+)
+├── package.json                         npm scripts only — no dependencies
+├── frontend/                            GitHub Pages site (served as-is, no build)
+│   ├── index.html
+│   ├── css/app.css
+│   └── js/                              main.js, router, routes, config guard, views/
 ├── supabase/
 │   ├── migrations/                      PostgreSQL schema migrations (TASK 003+)
 │   └── functions/                       Supabase Edge Functions      (TASK 007+)
-├── tests/                               Automated tests              (TASK 002+)
+├── tests/                               node:test unit tests
 └── scripts/
+    ├── serve.mjs                        Local dev server
     └── verify-foundation.sh             Structure + secret-hygiene check
 ```
 
@@ -69,19 +74,38 @@ Each folder's purpose is described in [`docs/README.md`](docs/README.md).
 
 ---
 
-## Verifying the repository
+## Setup
+
+Requirements: **Node.js 22 or newer** (`node -v`). Nothing else — there are no npm packages
+to install (see `docs/DECISIONS.md` D-003). On Windows, run the commands from Git Bash so
+`npm run verify` (a shell script) works.
 
 ```bash
-sh scripts/verify-foundation.sh
+npm run dev      # start the site at http://127.0.0.1:5173
+npm test         # unit tests (router, config guard, dev server, frontend security)
+npm run verify   # structure + credential scan
+npm run check    # verify + test — run before every commit
 ```
 
-The script needs only a POSIX shell. It checks that every specification file and folder
-exists, that `.gitignore` excludes secret files, and that no tracked file looks like it
-contains a credential. It exits non-zero on any failure.
+`npm run dev` uses port 5173; set another with `PORT=8080 npm run dev`.
+
+### Configuration
+
+| What | Where | Committed? |
+|------|-------|-----------|
+| Supabase URL + anon/publishable key (public) | `frontend/js/app-config.js` | Yes — public by design |
+| Provider API keys (Twelve Data, …) | Supabase Edge Function secrets; locally `supabase/functions/.env` (template: `.env.example`) | **Never** |
+| Supabase service-role / secret key | Supabase only | **Never** |
+
+The app validates `app-config.js` at start-up and refuses to connect if it finds a
+service-role key, a secret key or any extra field.
 
 ---
 
-## Setup
+## Verifying the repository
 
-Development setup (package configuration, scripts, local Supabase) arrives in **TASK 002**.
-Nothing needs to be installed yet.
+`npm run check` must pass. `verify-foundation.sh` checks that every specification file and
+folder exists, that `.gitignore` excludes secret files, and that no file looks like it contains
+a credential. The unit tests check routing, the configuration guard, the dev server
+(including path-traversal protection) and that the frontend has no secrets, direct provider
+calls, browser-storage databases or third-party scripts.
