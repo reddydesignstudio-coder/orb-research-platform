@@ -1,0 +1,58 @@
+# Import run (TASK 008). Manual only: Actions → Import run → Run workflow.
+#
+# Starts ONE import run for one symbol and UTC range through the deployed
+# importer function: candles are stored, every provider request is recorded
+# in import_jobs under a new run id. Each job uses 1 Twelve Data credit.
+# The Admin "GET DATA" button replaces this in TASK 015.
+#
+# Needs the repository secret SUPABASE_SECRET_KEY (same as Provider live check).
+name: Import run
+
+on:
+  workflow_dispatch:
+    inputs:
+      symbol:
+        description: 'Symbol exactly as in the symbols table (e.g. SPY, EUR/USD)'
+        required: true
+        default: 'SPY'
+      start_utc:
+        description: 'Range start, UTC (e.g. 2026-09-24T13:30:00Z)'
+        required: true
+      end_utc:
+        description: 'Range end, UTC, exclusive (e.g. 2026-09-24T15:00:00Z)'
+        required: true
+      max_jobs:
+        description: 'Provider requests in this run (1–7; each ≤ 4 999 minutes)'
+        required: true
+        default: '4'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: import-run
+  cancel-in-progress: false
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: https://mfsdctxhtinldnkffgbv.supabase.co
+      SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+      IMPORT_SYMBOL: ${{ inputs.symbol }}
+      IMPORT_START: ${{ inputs.start_utc }}
+      IMPORT_END: ${{ inputs.end_utc }}
+      IMPORT_MAX_JOBS: ${{ inputs.max_jobs }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+      - name: Require the SUPABASE_SECRET_KEY secret
+        run: |
+          if [ -z "$SUPABASE_SECRET_KEY" ]; then
+            echo "::error::SUPABASE_SECRET_KEY is not set (see README)."
+            exit 1
+          fi
+      - name: Run the import and report
+        run: node scripts/import-run.mjs

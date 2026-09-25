@@ -33,7 +33,7 @@ env:
 
 jobs:
   deploy:
-    name: Test and deploy market-data
+    name: Test and deploy all Edge Functions
     runs-on: ubuntu-latest
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
@@ -53,5 +53,5 @@ jobs:
       - uses: supabase/setup-cli@v3
         with:
           version: 2.117.0
-      - name: Deploy market-data
-        run: supabase functions deploy market-data --project-ref "$PROJECT_REF" --use-api
+      - name: Deploy every function in supabase/functions (folders starting with _ are shared code)
+        run: supabase functions deploy --project-ref "$PROJECT_REF" --use-api
