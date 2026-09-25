@@ -1,0 +1,57 @@
+# Deploys Supabase Edge Functions (TASK 007, D-020).
+#
+# Runs when function code changes on main, when started by "Apply update
+# package", or by hand (Actions → Deploy Edge Functions → Run workflow).
+# Nothing is deployed unless `npm run check` passes.
+#
+# One-time manual steps (owner):
+#   GitHub  Settings → Secrets and variables → Actions → New repository secret:
+#           SUPABASE_ACCESS_TOKEN = a Supabase personal access token
+#           (supabase.com → Account → Access Tokens).
+#   Supabase  Edge Functions → Secrets: TWELVE_DATA_API_KEY = your Twelve Data key.
+#           The provider key lives ONLY there — never in GitHub.
+name: Deploy Edge Functions
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/functions/**'
+      - 'supabase/config.toml'
+      - '.github/workflows/functions.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: functions-deploy
+  cancel-in-progress: false
+
+env:
+  PROJECT_REF: mfsdctxhtinldnkffgbv
+
+jobs:
+  deploy:
+    name: Test and deploy market-data
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+      - name: Unit tests (incl. provider, adapter and function tests)
+        run: npm run check
+      - name: Require the SUPABASE_ACCESS_TOKEN secret
+        run: |
+          if [ -z "$SUPABASE_ACCESS_TOKEN" ]; then
+            echo "::error::SUPABASE_ACCESS_TOKEN is not set. Add it under Settings → Secrets and variables → Actions (see README)."
+            exit 1
+          fi
+      - uses: supabase/setup-cli@v3
+        with:
+          version: 2.117.0
+      - name: Deploy market-data
+        run: supabase functions deploy market-data --project-ref "$PROJECT_REF" --use-api

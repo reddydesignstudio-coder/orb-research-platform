@@ -9,7 +9,7 @@
 #        c. makes the repository match the package exactly (everything except
 #           .git/ and .github/), which also removes stray or misplaced files,
 #        d. commits and pushes, removing orb-update.zip,
-#        e. starts CI, Pages and database deployment for the new commit.
+#        e. starts CI, Pages, database and Edge Function deployment for the new commit.
 #
 # Files in .github/workflows are never changed by this workflow (GitHub does not
 # allow it); those are uploaded directly into .github/workflows when needed.
@@ -93,7 +93,7 @@ jobs:
           git push
           echo "CHANGED=true" >> "$GITHUB_ENV"
 
-      - name: Start CI, Pages and database deployment
+      - name: Start CI, Pages, database and Edge Function deployment
         if: env.CHANGED == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
@@ -101,7 +101,7 @@ jobs:
           set -eu
           # Pushes made with the workflow token do not start other workflows by
           # themselves, so start them explicitly.
-          for wf in ci.yml pages.yml database.yml; do
+          for wf in ci.yml pages.yml database.yml functions.yml; do
             if [ -f ".github/workflows/$wf" ]; then
               gh workflow run "$wf" --ref main
               echo "Started $wf"
