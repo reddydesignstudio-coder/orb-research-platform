@@ -2,8 +2,9 @@
  * Import job engine (TASK 008; PROVIDERS.md §6, §9, §12; RULES.md — IMPORTER).
  *
  * One RUN (run_id) imports one symbol over one requested UTC range:
- *   1. the range is split into windows no larger than the provider's VERIFIED
- *      safe size, so no response can be truncated unnoticed (§6.2);
+ *   1. parts already definitively answered (TASK 009 coverage) are skipped;
+ *      the missing parts are split into windows no larger than the provider's
+ *      VERIFIED safe size, so no response can be truncated unnoticed (§6.2);
  *   2. windows are processed oldest first, one import_jobs row per window;
  *   3. each job: fetch → validate → store (duplicates skipped by the unique
  *      key) → record counts, status and errors;
@@ -19,12 +20,14 @@
  *   rate_limited  rate limit / quota; next_retry_at = when to try again
  *   failed        any other error (error_code, error_message)
  *
- * Checkpointing (import_progress), resume across runs, balancing and pacing
- * are TASK 009, 011 and 012. This engine never deletes or modifies candles.
+ * Resume (TASK 009): because answered windows are skipped, repeating a run —
+ * or continuing from the checkpoint — requests exactly what is still missing.
+ * Balancing and pacing are TASK 011 and 012. Candles are never deleted or modified.
  */
 
 import { ProviderError, ProviderErrorCode, assessCompleteness, defineRange, defineRequest, redactSecrets, requireVerified } from '../providers/mod.js';
 import { validateCandles } from './validate.js';
+import { minutesIn, missingRanges } from './coverage.js';
 
 const MINUTE_MS = 60_000;
 
@@ -67,14 +70,17 @@ function jobNotes(result, invalid) {
  * @param {object} p.config                                   the same row, for resolveSymbol()
  * @param {object} p.provider                                 the symbol's configured adapter
  * @param {import('../providers/retrieval.js').TimeRange} p.range
+ * @param {{ start: string, end: string }[]} [p.answered]   merged answered coverage (skipped)
  * @param {ReturnType<import('./store.js').createImportStore>} p.store
  * @param {number} p.maxJobs                                  windows to process in this run
  * @param {() => number} [p.now]
  * @param {string[]} [p.secrets]
  */
-export async function runImport({ runId, symbolRow, config, provider, range, store, maxJobs, now = Date.now, secrets = [] }) {
+export async function runImport({ runId, symbolRow, config, provider, range, answered = [], store, maxJobs, now = Date.now, secrets = [] }) {
   const caps = provider.capabilities();
-  const windows = planWindows(range, requireVerified(caps, 'maxSafeRangeMinutes'));
+  const maxMinutes = requireVerified(caps, 'maxSafeRangeMinutes');
+  const gaps = missingRanges(range, answered);
+  const windows = gaps.flatMap((g) => planWindows(defineRange(g.start, g.end), maxMinutes));
   const resolved = provider.resolveSymbol(config);
   const iso = (ms) => new Date(ms).toISOString();
   const jobs = [];
@@ -140,5 +146,16 @@ export async function runImport({ runId, symbolRow, config, provider, range, sto
     (t, j) => ({ received: t.received + (j.received_count ?? 0), inserted: t.inserted + (j.inserted_count ?? 0), duplicates: t.duplicates + (j.duplicate_count ?? 0) }),
     { received: 0, inserted: 0, duplicates: 0 },
   );
-  return { runId, symbol: symbolRow.symbol, provider: provider.id, requested: range, windows: windows.length, jobs, totals, stoppedReason, nextStartUtc };
+  return {
+    runId,
+    symbol: symbolRow.symbol,
+    provider: provider.id,
+    requested: range,
+    alreadyAnsweredMinutes: range.minutes - minutesIn(gaps),
+    windows: windows.length,
+    jobs,
+    totals,
+    stoppedReason,
+    nextStartUtc,
+  };
 }

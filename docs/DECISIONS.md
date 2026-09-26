@@ -315,3 +315,27 @@ timezone and deployment decisions require owner approval (INSTRUCTIONS.md §4).
   button (TASK 015). A job left `running` by a crash is handled by TASK 009.
 * **Triggered for now** by the manual workflow *Import run* (`import-run.yml`); the deploy
   workflow now deploys every function in `supabase/functions`.
+
+## D-023 — Checkpointing and resume (TASK 009)
+
+* **Date:** 2026-09-25 · **Task:** TASK 009 · **Type:** Implementation
+* **Checkpoint = answered coverage, not the last candle** (PROVIDERS.md §6.1). The windows of
+  `succeeded` import jobs are merged per symbol / provider / interval. The checkpoint is the end
+  of the first contiguous answered block; a weekend or holiday with no candles is still answered.
+* **Resume:** every run skips windows that are already answered and requests only what is
+  missing, so repeating or continuing a run costs no credits for done work and can never skip a
+  range. New mode `continue`: from the symbol's history start up to the latest settled minute —
+  i.e. it fills any hole and then extends the history.
+* **Interrupted jobs:** a job still `running` 15 minutes after it started (Edge Functions stop far
+  sooner) is closed as `failed` / `INTERRUPTED` at the start of the next run for that symbol; its
+  window is not answered, so it is requested again. Candles it may have stored are only counted
+  as duplicates.
+* **Settled minutes only:** a run may only request minutes that ended at least 30 minutes ago.
+  Otherwise a bar the provider has not published yet could be recorded as "answered with nothing"
+  and never requested again.
+* **import_progress** (PROJECT.md §8) is recomputed from the stored candles by the new database
+  function `refresh_import_progress(symbol_id, provider, interval)` after each run that stored
+  candles: first / last candle, count, and the common dataset timestamp = the minimum last
+  candle across enabled symbols (null until every enabled symbol has candles). Recomputing, not
+  incrementing, means it cannot drift. Server-side only (execute revoked from browser roles).
+  Migration `20260925190000_import_progress_refresh.sql` is additive (one function).

@@ -21,9 +21,10 @@ Files must be named `*.test.js`.
 | `adapters/twelve-data.test.js` | Twelve Data adapter (TASK 006): request parameters, key only in the header, UTC/DST, raw prices, missing volume, boundary bar, full page, error mapping and waits, shared contract |
 | `market-data/handler.test.js` | market-data function (TASK 007): secret-key-only access, input checks, symbol lookup, configured provider only, provider errors → HTTP, no key in responses or logs |
 | `importer/engine.test.js` | Import engine (TASK 008): safe windows, job records and statuses, duplicates, invalid OHLC, stopping rules, resume point, redaction |
-| `importer/handler.test.js` | importer function against a fake PostgREST: run id, stored candles, re-import, "no data", window split, rate limit, refusals |
-| `import-run.test.js` | Import-run report |
-| `db/20_importer.test.sql` | The importer's SQL as service_role: ON CONFLICT DO NOTHING, exact decimals, null volume, timestamp_et, job outcomes and constraints |
+| `importer/handler.test.js` | importer function against a fake PostgREST (`fake-backend.js`): run id, stored candles, "no data", window split, rate limit, refusals; TASK 009: answered windows skipped, resume after failure, interrupted jobs, continue mode, checkpoint vs last candle, import_progress |
+| `importer/coverage.test.js` | Answered coverage: merge, missing ranges, checkpoint (TASK 009) |
+| `import-run.test.js` | Import-run report (range and continue modes) |
+| `db/20_importer.test.sql` | The importer's SQL as service_role: ON CONFLICT DO NOTHING, exact decimals, null volume, timestamp_et, job outcomes and constraints; `refresh_import_progress` incl. common dataset and browser-role refusal |
 | `live-check.test.js` | Live-check helpers: New York session → UTC across DST, probe list, report |
 | `frontend-security.test.js` | No secrets, provider calls, browser storage or third-party scripts in `frontend/`; CSP present |
 

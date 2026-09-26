@@ -238,3 +238,8 @@ The `relationships(...)` index in INDEXES is created on `orb_relationships`.
 * Row Level Security is enabled on every table; browser roles cannot write; only signed-in
   users can read (D-011).
 * Measured storage: about 230 bytes per candle including indexes.
+* `refresh_import_progress(symbol_id, provider, interval)` recomputes an `import_progress` row
+  from the stored candles and updates `common_dataset_timestamp` (minimum last candle across
+  enabled symbols; null until all have candles). Server-side only (D-023).
+* The importer's resume point comes from answered `import_jobs` windows, not from
+  `import_progress.last_timestamp_utc` (PROVIDERS.md §6.1, D-023).

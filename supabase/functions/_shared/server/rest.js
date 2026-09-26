@@ -50,5 +50,7 @@ export function createRestClient({ baseUrl, key, fetchImpl = globalThis.fetch })
     insert: (table, rows, { params, prefer = 'return=representation' } = {}) => call('POST', table, params, rows, prefer),
     /** PATCH rows matching `params` filters; returns updated rows. */
     update: (table, params, patch) => call('PATCH', table, params, patch, 'return=representation'),
+    /** Call a database function: POST /rest/v1/rpc/<name>. */
+    rpc: (name, args) => call('POST', `rpc/${name}`, undefined, args),
   });
 }

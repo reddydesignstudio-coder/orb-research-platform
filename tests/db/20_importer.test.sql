@@ -84,3 +84,43 @@ select t.expect_error('importer: counts can never exceed rows received',
 
 reset role;
 \echo 'IMPORTER DATABASE TESTS PASSED'
+
+-- ====================================================================
+-- TASK 009 — refresh_import_progress (migration 20260925190000)
+-- ====================================================================
+set role service_role;
+select public.refresh_import_progress((select id from public.symbols where symbol = 'SPY'), 'twelve_data', '1min');
+select t.check('progress: first / last / count recomputed from stored candles',
+  (select (first_timestamp_utc, last_timestamp_utc, candle_count) = ('2026-09-24 13:30Z'::timestamptz, '2026-09-24 13:32Z'::timestamptz, 3::bigint)
+   from public.import_progress p join public.symbols s on s.id = p.symbol_id
+   where s.symbol = 'SPY' and p.provider = 'twelve_data'));
+select t.check('progress: common dataset is null while other enabled symbols have no candles',
+  (select common_dataset_timestamp is null from public.import_progress p join public.symbols s on s.id = p.symbol_id where s.symbol = 'SPY'));
+
+-- Refresh is idempotent (no drift).
+select public.refresh_import_progress((select id from public.symbols where symbol = 'SPY'), 'twelve_data', '1min');
+select t.check('progress: repeated refresh gives the same count',
+  (select candle_count from public.import_progress p join public.symbols s on s.id = p.symbol_id where s.symbol = 'SPY') = 3);
+
+-- Common dataset: disable everything except SPY and QQQ, give QQQ an earlier last candle.
+reset role;
+create temp table t_enabled as select id, enabled from public.symbols;
+update public.symbols set enabled = symbol in ('SPY', 'QQQ');
+set role service_role;
+insert into public.candles (symbol_id, timestamp_utc, open, high, low, close, provider)
+select id, '2026-09-24 13:30Z', 500, 501, 499, 500.5, 'twelve_data' from public.symbols where symbol = 'QQQ';
+select public.refresh_import_progress((select id from public.symbols where symbol = 'QQQ'), 'twelve_data', '1min');
+select t.check('progress: common dataset = min last timestamp across enabled symbols',
+  (select bool_and(common_dataset_timestamp = '2026-09-24 13:30Z') from public.import_progress));
+reset role;
+update public.symbols s set enabled = e.enabled from t_enabled e where e.id = s.id;
+
+set role anon;
+select t.expect_error('progress: browser roles cannot run the refresh',
+  $q$select public.refresh_import_progress(1, 'twelve_data', '1min')$q$, '42501');
+reset role;
+set role authenticated;
+select t.expect_error('progress: signed-in users cannot run the refresh either',
+  $q$select public.refresh_import_progress(1, 'twelve_data', '1min')$q$, '42501');
+reset role;
+\echo 'PROGRESS DATABASE TESTS PASSED'

@@ -186,7 +186,7 @@ Implement import jobs and run IDs.
 Status:
 
 ```text
-IN PROGRESS — built and tested; waiting for deployment and a live import
+COMPLETE — 2026-09-25
 ```
 
 Delivered: `supabase/functions/importer/` + `_shared/importer/` (runs with run ids, safe windows,
@@ -197,6 +197,11 @@ one job per window, validation, duplicate-safe storage, stopping rule with resum
 Verified so far: 153/153 unit tests (Node), 105 in Deno, all database tests incl. the importer's
 SQL on PostgreSQL, `deno check`, local Deno run of the entry point.
 
+Production: deployed by *Deploy Edge Functions* (1-year scoped token). *Import run* #1: SPY
+2026-09-24 09:30–11:00 ET → run `1d5e34a0…`, 1 job, received 90, inserted 90, duplicates 0.
+Re-run over the same range → run `bbddb0f3…`, received 90, inserted 0, duplicates 90: nothing
+stored twice.
+
 ---
 
 ### TASK 009 — Checkpointing
@@ -206,8 +211,16 @@ Implement resumable imports.
 Status:
 
 ```text
-TODO
+IN PROGRESS — built and tested; waiting for deployment and a live resume
 ```
+
+Delivered: answered-coverage checkpoint (`_shared/importer/coverage.js`), skip of answered
+windows, `continue` mode, interrupted-job recovery, settled-minutes rule, database function
+`refresh_import_progress` (migration `20260925190000`), updated *Import run* workflow.
+Decision D-023.
+
+Verified so far: 163/163 unit tests, all database tests incl. 6 new progress checks, Supabase
+CLI rehearsal of the incremental migration (dry run + apply).
 
 ---
 

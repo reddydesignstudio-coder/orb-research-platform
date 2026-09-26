@@ -49,6 +49,11 @@ import run (new `run_id`): the range is split into safe windows, each window is 
 run stops at the first window that is not definitively answered and returns `nextStartUtc`.
 Same access rule as `market-data`. Started for now by the manual *Import run* workflow (D-022).
 
+Checkpointing (TASK 009, D-023): windows already answered are skipped; `{ "symbol", "continue":
+true }` resumes from the symbol's checkpoint up to the latest settled minute (30 minutes ago);
+jobs left `running` by an interrupted run are closed as `INTERRUPTED` and redone; after storing
+candles `refresh_import_progress` updates `import_progress`.
+
 ## Secrets
 
 Provider API keys and the service-role key are **Supabase Edge Function secrets**. The

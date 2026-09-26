@@ -1,6 +1,17 @@
 # CHANGELOG
 
-## TASK 008 — Import Job Engine — 2026-09-25 (awaiting live import)
+## TASK 009 — Checkpointing — 2026-09-25 (awaiting live resume)
+
+Added
+
+* `supabase/functions/_shared/importer/coverage.js`; importer skips answered windows, `continue`
+  mode, closes interrupted jobs, only imports settled minutes, refreshes `import_progress`.
+* Migration `20260925190000_import_progress_refresh.sql` (function only, additive).
+* *Import run* workflow: `mode` input (range | continue).
+* Tests: `tests/importer/coverage.test.js`, `tests/importer/fake-backend.js`, extended handler,
+  import-run and database tests. Decision D-023; DATABASE.md implementation notes.
+
+## TASK 008 — Import Job Engine — 2026-09-25
 
 Added
 
