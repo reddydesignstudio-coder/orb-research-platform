@@ -1,0 +1,48 @@
+# Import scheduler (TASK 012, D-027): builds the dataset automatically.
+#
+# Every hour it repeats balanced GET DATA runs for up to 50 minutes, pacing itself
+# by the importer's credit budget (≤ 7 requests per minute, ≤ 780 per UTC day,
+# 20 left for manual checks). When the daily budget is used it stops; runs after
+# 00:00 UTC continue. When everything is imported, each hourly run only checks
+# and exits (no provider credits used).
+#
+# Pause:  Actions → Import scheduler → "…" → Disable workflow.   Resume: Enable.
+# Manual: Actions → Import scheduler → Run workflow.
+# Runs never overlap with each other or with the manual "Import run" workflow.
+#
+# Needs the repository secret SUPABASE_SECRET_KEY (same as Import run).
+name: Import scheduler
+
+on:
+  schedule:
+    - cron: '23 * * * *'   # hourly at minute 23 (off the busy top of the hour)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: import-run          # shared with import-run.yml
+  cancel-in-progress: false
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 58
+    env:
+      SUPABASE_URL: https://mfsdctxhtinldnkffgbv.supabase.co
+      SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+      RUN_MINUTES: '50'
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+      - name: Require the SUPABASE_SECRET_KEY secret
+        run: |
+          if [ -z "$SUPABASE_SECRET_KEY" ]; then
+            echo "::error::SUPABASE_SECRET_KEY is not set (see README)."
+            exit 1
+          fi
+      - name: Import until the budget, the time or the data runs out
+        run: node scripts/import-scheduler.mjs
