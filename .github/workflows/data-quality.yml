@@ -1,0 +1,56 @@
+# Data quality (TASK 014, D-029). Manual: Actions → Data quality → Run workflow.
+# (The hourly Import scheduler also checks newly imported sessions after each run.)
+#
+#   pending — check every imported session that has no data_quality row yet
+#   range   — re-check one symbol between two dates and list every session
+# Reads stored candles and writes data_quality rows. No provider call, no credits.
+name: Data quality
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: pending (all new sessions) or range (one symbol)
+        type: choice
+        options: [pending, range]
+        default: pending
+      symbol:
+        description: Symbol for range mode (e.g. AUD/USD)
+        default: ''
+      from:
+        description: Range mode — first session date (YYYY-MM-DD, inclusive)
+        default: ''
+      to:
+        description: Range mode — last session date (YYYY-MM-DD, exclusive)
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: data-quality
+  cancel-in-progress: false
+
+jobs:
+  data-quality:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: https://mfsdctxhtinldnkffgbv.supabase.co
+      SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+      QUALITY_MODE: ${{ inputs.mode }}
+      QUALITY_SYMBOL: ${{ inputs.symbol }}
+      FROM: ${{ inputs.from }}
+      TO: ${{ inputs.to }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+      - name: Require the SUPABASE_SECRET_KEY secret
+        run: |
+          if [ -z "$SUPABASE_SECRET_KEY" ]; then
+            echo "::error::SUPABASE_SECRET_KEY is not set. Add it under Settings → Secrets and variables → Actions (see README)."
+            exit 1
+          fi
+      - name: Check data quality and report
+        run: node scripts/data-quality.mjs
