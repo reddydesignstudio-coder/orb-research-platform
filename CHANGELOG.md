@@ -1,6 +1,18 @@
 # CHANGELOG
 
-## TASK 010 — Deduplication — 2026-09-26 (awaiting live import)
+## TASK 011 — Balanced Import — 2026-09-26 (awaiting live run)
+
+Added
+
+* Research window for every market: migration `20260926100000_research_window_all_markets.sql`;
+  `_shared/importer/session.js`; the importer stores only 09:30–11:00 America/New_York.
+* Balanced GET DATA mode: `_shared/importer/balance.js`, `config.js` (history start 26 Sep 2025);
+  `_shared/server/symbols.js` loads all enabled symbols.
+* *Import run* workflow: mode `balanced` (default); balanced report.
+* Tests: `tests/importer/session.test.js`, `tests/importer/balance.test.js`, balanced function
+  tests, universe/migration checks. Decisions D-025, D-026; SR-09 resolved.
+
+## TASK 010 — Deduplication — 2026-09-26
 
 Added
 

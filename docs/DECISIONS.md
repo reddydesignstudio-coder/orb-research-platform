@@ -365,3 +365,42 @@ timezone and deployment decisions require owner approval (INSTRUCTIONS.md §4).
 * Values are compared as exact decimals ("10.50" = "10.5"); an absent volume never equals 0.
 * Checked live: Supabase's API accepts the read-back query (`in.(…)` minute list with
   `::text` casts).
+
+## D-025 — Research window, history start and dataset size (TASK 011)
+
+* **Date:** 2026-09-26 · **Approved by:** project owner · **Closes:** SR-09
+* **Stored data = the research window only.** For every symbol, only candles from 09:30 up to
+  11:00 **America/New_York** (11:00 excluded, 90 candles) are stored. This applies to forex,
+  crypto and gold too, so all symbols are observed at the same moments as the US open
+  (cross-symbol research, RELATIONSHIPS.md). Crypto is included every day, weekends too; the
+  other markets simply have no weekend candles. Recorded as configuration in
+  `symbols.session_*` (migration `20260926100000_research_window_all_markets.sql` fills only
+  undefined sessions), applied by the importer (`_shared/importer/session.js`, DST-aware via
+  the time-zone database). Candles outside the window are counted on the job, never stored.
+* **History start:** 26 Sep 2025 (one year), `_shared/importer/config.js`.
+* **Fetching:** whole safe windows (≤ 4 999 min) are fetched and filtered — about 1 575 credits
+  for the year (≈ 2 days of the Basic quota), instead of ≈ 5 475 for one request per day.
+* **Why:** a full year of every minute for 15 symbols is ≈ 3.7 M rows / ≈ 850 MB, above the
+  Supabase free plan's 500 MB. The window-only dataset is ≈ 364 000 rows / ≈ 85 MB.
+* **Existing candles:** SPY's 690 test candles outside the window (24–25 Sep 2026) are kept
+  (owner decision); research only uses the window.
+* Open follow-ups for later tasks: the time exit for non-US markets (SR-13 covers 11:00 ET)
+  and what counts as a closed session for forex / gold in data quality (TASK 013/014).
+
+## D-026 — Balanced import / GET DATA (TASK 011)
+
+* **Date:** 2026-09-26 · **Task:** TASK 011 · **Type:** Implementation
+* `{ "balanced": true }` on the importer = one GET DATA run with one run id over **all enabled
+  symbols** (read from the `symbols` table, never hard-coded).
+* Each symbol's **frontier** = the first unanswered minute from the history start to the latest
+  settled minute. Every step imports **one window for the symbol whose frontier is earliest**
+  (ties by symbol name), so no symbol is ever more than one window (≤ 4 999 min) ahead.
+* **Common frontier** (`commonAnsweredThroughUtc`) = the minimum frontier: every importable
+  enabled symbol is answered at least that far. `import_progress.common_dataset_timestamp`
+  (last stored candle, PROJECT.md §8) is refreshed alongside.
+* Failures: provider-wide codes (rate limit, quota, auth, outage, network, timeout, database,
+  internal) stop the run; symbol-specific ones set that symbol aside for the rest of the run
+  (reported), the others continue. A symbol that cannot be imported at all (no research window,
+  no adapter) is listed and makes the run "not up to date" — never silently ignored.
+* Runs are limited to `maxJobs` (≤ 7 on Basic). Automatic repeated runs and pacing are TASK 012;
+  the Admin button is TASK 015.

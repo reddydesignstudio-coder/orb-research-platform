@@ -24,7 +24,7 @@ Status values: `OPEN` (needs an owner decision), `NOTED` (informational, no deci
 | SR-06 | `trades` has no exit reason (TP / SL / time exit / ambiguous) | TASK 003, 019 | RESOLVED (D-009) |
 | SR-07 | `candles.timestamp_et` for non-US markets | TASK 003 | RESOLVED (D-009) |
 | SR-08 | Initial 15 symbols not named | TASK 004 | RESOLVED (D-014) |
-| SR-09 | Sessions for forex, crypto and gold are not defined | TASK 004, 013, 016 | OPEN (symbols seeded without sessions, D-014) |
+| SR-09 | Sessions for forex, crypto and gold are not defined | TASK 004, 013, 016 | RESOLVED — 09:30–11:00 America/New_York for all (D-025) |
 | SR-10 | US market holiday calendar source not specified | TASK 013 | OPEN |
 | SR-11 | Breakout trigger and entry-price convention | TASK 017, 019 | OPEN |
 | SR-12 | Candle that breaks both ORB High and ORB Low | TASK 017 | OPEN |
@@ -98,7 +98,13 @@ The spec fixes the counts (8 US stocks, 4 forex, 2 crypto, 1 XAUUSD) but not the
 `RELATIONSHIPS.md` uses SPY, AAPL, NVDA, MSFT, AMD as examples. Needed: the 15 symbols
 (and their Twelve Data symbols). Required for TASK 004.
 
-### SR-09 — Non-US sessions  — OPEN
+### SR-09 — Non-US sessions  — RESOLVED 2026-09-26 (D-025)
+
+Resolution: the owner chose one research window for every market — 09:30 → 11:00
+America/New_York, 90 candles, crypto every day. Only candles inside it are stored. Time exit
+and closed-session rules for non-US markets remain to be settled with SR-13 and TASK 013/014.
+
+Original finding:
 
 Only the US stock session is defined (America/New_York, 09:30–10:59, 90 candles, time exit
 11:00). For forex, crypto and XAUUSD the spec does not define: session timezone, ORB anchor

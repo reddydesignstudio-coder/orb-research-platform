@@ -1,32 +1,34 @@
 /**
- * importer Edge Function — request handler (TASK 008).
+ * importer Edge Function — request handler (TASK 008, 009, 011).
  *
  *   POST /functions/v1/importer
  *   apikey: <a Supabase SECRET key>             server-to-server only (D-020)
+ *   { "balanced": true, "maxJobs"?: 1–7 }                              (TASK 011 — GET DATA)
+ *   { "symbol": "SPY", "continue": true, "maxJobs"?: 1–7 }             (TASK 009)
  *   { "symbol": "SPY", "startUtc": "…Z", "endUtc": "…Z", "maxJobs"?: 1–7 }
- *   { "symbol": "SPY", "continue": true, "maxJobs"?: 1–7 }          (TASK 009)
  *
- * Starts one import run (new run_id) for one configured symbol and returns its
- * summary: jobs, counts, why it stopped, the checkpoint and import_progress.
+ * Every mode stores only candles inside the symbol's research window
+ * (symbols.session_*; 09:30–11:00 America/New_York, D-025).
  *
  * Checkpointing / resume (TASK 009, D-023):
  *   - windows already definitively answered are never requested again;
- *   - "continue" imports from the symbol's checkpoint (end of its answered
- *     history) up to the latest settled minute;
  *   - jobs left "running" by an interrupted run are closed as INTERRUPTED first;
- *   - only minutes that ended at least SETTLE_MINUTES ago are imported, so a bar
- *     the provider has not published yet can never be recorded as answered.
- * Balance across symbols is TASK 011; the Admin "GET DATA" button is TASK 015.
+ *   - only minutes that ended at least SETTLE_MINUTES ago are imported.
+ * Balanced (TASK 011, D-026): every enabled symbol is built from HISTORY_START_UTC;
+ * each step imports one window for the symbol furthest behind (balance.js).
  */
 
 import { ProviderError, defineRange, redactSecrets, requireVerified } from '../providers/mod.js';
 import { failure, guardServerRequest, parseSecretKeys, reply } from '../server/http.js';
 import { createRestClient } from '../server/rest.js';
-import { loadSymbolWithProvider, providerSecretNames } from '../server/symbols.js';
+import { loadEnabledSymbols, loadSymbolWithProvider, providerFor, providerSecretNames } from '../server/symbols.js';
 import { providerFailure } from '../market-data/handler.js';
 import { runImport } from './engine.js';
+import { runBalanced } from './balance.js';
 import { checkpointOf, mergeCoverage } from './coverage.js';
+import { researchWindow } from './session.js';
 import { createImportStore } from './store.js';
+import { HISTORY_START_UTC } from './config.js';
 
 export const DEFAULT_MAX_JOBS = 4;
 /** Only minutes that ended at least this long ago are imported (D-023). */
@@ -36,6 +38,21 @@ export const INTERRUPTED_AFTER_MINUTES = 15;
 
 const MINUTE_MS = 60_000;
 
+/** maxJobs allowed by the plan's per-minute limit (pacing proper is TASK 012). */
+function jobCap(provider) {
+  return Math.max(1, requireVerified(provider.capabilities(), 'rateLimit').creditsPerMinute - 1);
+}
+
+function windowOrFailure(config) {
+  try {
+    const keep = researchWindow(config);
+    if (!keep) return { error: { status: 422, code: 'SESSION_NOT_DEFINED', message: `"${config.symbol}" has no research window (session_start/session_end) configured.` } };
+    return { keep };
+  } catch (e) {
+    return { error: { status: 422, code: 'SESSION_INVALID', message: e.message } };
+  }
+}
+
 /**
  * @param {object} deps
  * @param {(name: string) => string | undefined} deps.env
@@ -43,8 +60,9 @@ const MINUTE_MS = 60_000;
  * @param {() => number} [deps.now]
  * @param {() => string} [deps.newRunId]
  * @param {(msg: string) => void} [deps.log]
+ * @param {string} [deps.historyStartUtc]   override for tests
  */
-export function createImporterHandler({ env, fetchImpl = globalThis.fetch, now = Date.now, newRunId = () => crypto.randomUUID(), log = console.error }) {
+export function createImporterHandler({ env, fetchImpl = globalThis.fetch, now = Date.now, newRunId = () => crypto.randomUUID(), log = console.error, historyStartUtc = HISTORY_START_UTC }) {
   return async function handle(req) {
     const secretKeys = parseSecretKeys(env('SUPABASE_SECRET_KEYS'));
     const allSecrets = [...secretKeys, ...providerSecretNames().map((n) => env(n)).filter(Boolean)];
@@ -58,16 +76,23 @@ export function createImporterHandler({ env, fetchImpl = globalThis.fetch, now =
       try {
         body = await req.json();
       } catch {
-        return failure(400, 'BAD_REQUEST', 'Body must be JSON: { symbol, startUtc, endUtc, maxJobs? }.');
+        return failure(400, 'BAD_REQUEST', 'Body must be JSON: { balanced: true } or { symbol, continue: true } or { symbol, startUtc, endUtc }.');
       }
       const { symbol, startUtc, endUtc, maxJobs = DEFAULT_MAX_JOBS } = body ?? {};
+      const balanced = body?.balanced === true;
       const continuing = body?.continue === true;
-      if (typeof symbol !== 'string' || symbol.trim() === '') return failure(400, 'BAD_REQUEST', '"symbol" is required.');
       const nowMs = now();
-      const settledMs = Math.floor(nowMs / MINUTE_MS) * MINUTE_MS - SETTLE_MINUTES * MINUTE_MS;
-      const settledIso = new Date(settledMs).toISOString();
+      const nowIso = new Date(nowMs).toISOString();
+      const settledIso = new Date(Math.floor(nowMs / MINUTE_MS) * MINUTE_MS - SETTLE_MINUTES * MINUTE_MS).toISOString();
+      const staleIso = new Date(nowMs - INTERRUPTED_AFTER_MINUTES * MINUTE_MS).toISOString();
+
+      if (balanced && (symbol !== undefined || continuing || startUtc !== undefined || endUtc !== undefined)) {
+        return failure(400, 'BAD_REQUEST', '"balanced": true imports every enabled symbol: send no symbol, dates or "continue".');
+      }
+      if (!balanced && (typeof symbol !== 'string' || symbol.trim() === '')) return failure(400, 'BAD_REQUEST', '"symbol" is required (or send "balanced": true).');
+
       let explicitRange = null;
-      if (!continuing) {
+      if (!balanced && !continuing) {
         try {
           explicitRange = defineRange(startUtc, endUtc);
         } catch (e) {
@@ -76,34 +101,83 @@ export function createImporterHandler({ env, fetchImpl = globalThis.fetch, now =
         if (explicitRange.endUtc > settledIso) {
           return failure(400, 'BAD_REQUEST', `endUtc must be at or before ${settledIso}: only minutes that ended at least ${SETTLE_MINUTES} minutes ago are imported.`);
         }
-      } else if (startUtc !== undefined || endUtc !== undefined) {
+      } else if (continuing && (startUtc !== undefined || endUtc !== undefined)) {
         return failure(400, 'BAD_REQUEST', 'Send either "continue": true or startUtc/endUtc, not both.');
       }
 
       const baseUrl = env('SUPABASE_URL');
       if (!baseUrl) return failure(500, 'SERVER_MISCONFIGURED', 'SUPABASE_URL is not available to the function.');
       const rest = createRestClient({ baseUrl, key: secretKeys[0], fetchImpl });
+      const store = createImportStore(rest);
 
+      // ------------------------------------------------------------ balanced (GET DATA)
+      if (balanced) {
+        const rows = await loadEnabledSymbols(rest);
+        const ready = [];
+        const notReady = [];
+        let cap = Infinity;
+        for (const config of rows) {
+          const built = providerFor(config, { env, fetchImpl, now });
+          if (!built.ok) { notReady.push({ symbol: config.symbol, symbolId: config.id, setAside: built.code, message: built.message }); continue; }
+          const w = windowOrFailure(config);
+          if (w.error) { notReady.push({ symbol: config.symbol, symbolId: config.id, setAside: w.error.code, message: w.error.message }); continue; }
+          cap = Math.min(cap, jobCap(built.provider));
+          ready.push({ config, provider: built.provider, keep: w.keep });
+        }
+        if (!ready.length) return failure(409, 'NOTHING_TO_IMPORT', 'No enabled symbol is ready to import.', { notReady });
+        if (!Number.isInteger(maxJobs) || maxJobs < 1 || maxJobs > cap) {
+          return failure(400, 'BAD_REQUEST', `"maxJobs" must be an integer from 1 to ${cap} for this provider plan.`);
+        }
+        let interruptedJobsClosed = 0;
+        for (const s of ready) {
+          interruptedJobsClosed += await store.closeInterruptedJobs(s.config.id, staleIso, nowIso);
+          s.answered = await store.answeredRanges(s.config.id, s.provider.id);
+        }
+        const summary = await runBalanced({
+          runId: newRunId(),
+          symbols: ready,
+          historyStartIso: historyStartUtc,
+          settledIso,
+          maxJobs,
+          store,
+          now,
+          secrets: allSecrets,
+        });
+        let progressError = null;
+        try {
+          for (const p of summary.perSymbol) {
+            if (p.inserted > 0) await store.refreshProgress(p.symbolId, ready.find((r) => r.config.id === p.symbolId).provider.id);
+          }
+        } catch (e) {
+          progressError = redact(e?.message ?? String(e));
+        }
+        return reply(200, {
+          ok: true,
+          ...summary,
+          // A symbol that cannot be imported is never "up to date", and is named as
+          // missing from the common frontier rather than silently left out.
+          upToDate: summary.upToDate && notReady.length === 0,
+          commonScope: { symbols: ready.length, excluded: notReady.map((n) => n.symbol) },
+          perSymbol: [...summary.perSymbol, ...notReady],
+          interruptedJobsClosed,
+          ...(progressError ? { progressError } : {}),
+        });
+      }
+
+      // ------------------------------------------------------------ one symbol
       const loaded = await loadSymbolWithProvider({ rest, env, fetchImpl, now, symbol });
       if (!loaded.ok) return failure(loaded.status, loaded.code, redact(loaded.message));
       const { config, provider } = loaded;
+      const w = windowOrFailure(config);
+      if (w.error) return failure(w.error.status, w.error.code, w.error.message);
 
-      // Stay inside the plan's per-minute request limit (verified; pacing proper is TASK 012).
-      const perMinute = requireVerified(provider.capabilities(), 'rateLimit').creditsPerMinute;
-      const cap = Math.max(1, perMinute - 1);
+      const cap = jobCap(provider);
       if (!Number.isInteger(maxJobs) || maxJobs < 1 || maxJobs > cap) {
         return failure(400, 'BAD_REQUEST', `"maxJobs" must be an integer from 1 to ${cap} for this provider plan.`);
       }
 
-      const store = createImportStore(rest);
-      const nowIso = new Date(nowMs).toISOString();
-      const interruptedJobsClosed = await store.closeInterruptedJobs(
-        config.id,
-        new Date(nowMs - INTERRUPTED_AFTER_MINUTES * MINUTE_MS).toISOString(),
-        nowIso,
-      );
-      const answeredRaw = await store.answeredRanges(config.id, provider.id);
-      const answered = mergeCoverage(answeredRaw);
+      const interruptedJobsClosed = await store.closeInterruptedJobs(config.id, staleIso, nowIso);
+      const answered = mergeCoverage(await store.answeredRanges(config.id, provider.id));
 
       let range = explicitRange;
       if (continuing) {
@@ -126,6 +200,7 @@ export function createImporterHandler({ env, fetchImpl = globalThis.fetch, now =
         answered,
         store,
         maxJobs,
+        keep: w.keep,
         now,
         secrets: allSecrets,
       });
@@ -146,6 +221,7 @@ export function createImporterHandler({ env, fetchImpl = globalThis.fetch, now =
       }
       Object.assign(summary, {
         mode: continuing ? 'continue' : 'range',
+        researchWindow: w.keep.label,
         interruptedJobsClosed,
         settledUntilUtc: settledIso,
         historyStartUtc: cp?.historyStart ?? null,

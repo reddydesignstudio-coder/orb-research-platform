@@ -239,7 +239,7 @@ Implement database/application duplicate prevention.
 Status:
 
 ```text
-IN PROGRESS — built and tested; waiting for deployment and a live import
+COMPLETE — 2026-09-26
 ```
 
 Delivered: `_shared/importer/dedupe.js` (identical repeats stored once; conflicting versions
@@ -250,6 +250,12 @@ Verified so far: 172/172 unit tests (8 new dedupe tests + 1 through the importer
 new database checks (incl. proof that PostgreSQL alone would keep a conflicting version
 silently), and the live Supabase API accepts the read-back query.
 
+Production: deployed 2026-09-26 (all workflows green). *Import run* #3, QQQ 2026-09-24
+09:30–11:00 ET → run `ac9e7128…`: received 90, inserted 90 (counted from the minutes the
+database returned), duplicates 0; import_progress 90 candles. The duplicate / conflict /
+revision paths only occur on repeated or recovered windows; they are covered by the tests above,
+and their database query was accepted by the live API.
+
 ---
 
 ### TASK 011 — Balanced Import
@@ -259,8 +265,17 @@ Implement fair progress across enabled symbols.
 Status:
 
 ```text
-TODO
+IN PROGRESS — built and tested; waiting for deployment and a live balanced run
 ```
+
+Delivered: research window for every market (migration `20260926100000`, `session.js`: only
+09:30–11:00 America/New_York stored), history start 26 Sep 2025 (`config.js`), balanced GET DATA
+mode (`balance.js`: furthest-behind symbol first, common frontier, set-aside vs run-stopping
+failures), *Import run* workflow mode `balanced`. Decisions D-025, D-026; SR-09 resolved.
+
+Verified so far: all unit tests incl. 6 window and 8 balance tests and 4 balanced function tests;
+database tests incl. the migration never overwriting an owner-set session; Supabase CLI
+rehearsal of the migration (all 15 symbols → 09:30–11:00 America/New_York).
 
 ---
 

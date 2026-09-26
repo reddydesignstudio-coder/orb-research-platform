@@ -10,9 +10,9 @@ import { BASE, SECRET, TD_KEY, bars, fakeBackend } from './fake-backend.js';
 const NOW = Date.parse('2026-09-25T12:00:20Z'); // settled until 11:30Z
 const RUN_ID = '11111111-2222-4333-8444-555555555555';
 
-function handler(backend, env = {}, now = NOW) {
+function handler(backend, env = {}, now = NOW, historyStartUtc = '2026-09-24T13:30:00.000Z') {
   const vars = { SUPABASE_URL: BASE, SUPABASE_SECRET_KEYS: JSON.stringify({ default: SECRET }), TWELVE_DATA_API_KEY: TD_KEY, ...env };
-  return createImporterHandler({ env: (n) => vars[n], fetchImpl: backend.fetchImpl, now: () => now, newRunId: () => RUN_ID, log: () => {} });
+  return createImporterHandler({ env: (n) => vars[n], fetchImpl: backend.fetchImpl, now: () => now, newRunId: () => RUN_ID, log: () => {}, historyStartUtc });
 }
 
 const post = (body, key = SECRET) =>
@@ -155,9 +155,10 @@ test('continue: needs existing history; reports up-to-date without calling the p
 });
 
 test('checkpoint semantics follow answered ranges, not the last candle (a weekend is answered too)', async () => {
-  const backend = fakeBackend({ tdRows: { '2026-09-18T20:00:00': bars('2026-09-18T20:00:00Z', 1) } }); // Fri 16:00 ET bar only
-  const r = await read(await handler(backend)(post({ symbol: 'SPY', startUtc: '2026-09-18T20:00:00Z', endUtc: '2026-09-21T13:00:00Z' })));
-  assert.equal(r.json.progress.last_timestamp_utc, '2026-09-18T20:00:00.000Z');
+  // Fri 18 Sep 10:59 ET (14:59Z, EDT) is the last minute of that window; the weekend has no candles.
+  const backend = fakeBackend({ tdRows: { '2026-09-18T14:59:00': bars('2026-09-18T14:59:00Z', 1) } });
+  const r = await read(await handler(backend)(post({ symbol: 'SPY', startUtc: '2026-09-18T14:59:00Z', endUtc: '2026-09-21T13:00:00Z' })));
+  assert.equal(r.json.progress.last_timestamp_utc, '2026-09-18T14:59:00.000Z');
   assert.equal(r.json.checkpointUtc, '2026-09-21T13:00:00.000Z', 'weekend counted as answered');
 });
 
@@ -174,6 +175,56 @@ test('candles stored by an interrupted run are counted as duplicates; a revised 
   assert.match(job.error_message, /1 stored candle\(s\) differ.*2026-09-24T13:31:00.000Z/);
   assert.equal(backend.db.candles.find((c) => c.timestamp_utc === '2026-09-24T13:31:00.000Z').high, '100.70', 'stored value kept');
   assert.equal(backend.db.candles.length, 3);
+});
+
+// ------------------------------------------------------------------ TASK 011: balanced import (GET DATA)
+test('balanced: every enabled symbol with a window gets its first missing window, furthest-behind first', async () => {
+  // History start 24 Sep 13:30Z, settled 25 Sep 11:30Z → one 1 320-minute window per symbol.
+  const backend = fakeBackend({ tdRows: { '2026-09-24T13:30:00': bars('2026-09-24T13:30:00Z', 200) } });
+  const r = await read(await handler(backend)(post({ balanced: true })));
+  assert.equal(r.status, 200);
+  assert.equal(r.json.mode, 'balanced');
+  assert.deepEqual(r.json.jobs.map((j) => [j.symbol, j.status, j.received_count, j.inserted_count]), [
+    ['QQQ', 'succeeded', 200, 90], // only 09:30–10:59 ET is stored
+    ['SPY', 'succeeded', 200, 90],
+  ]);
+  assert.ok(backend.db.jobs.every((j) => j.run_id === RUN_ID), 'one run id for the whole GET DATA run');
+  assert.equal(r.json.upToDate, false, 'NOSESS is not complete');
+  const byName = Object.fromEntries(r.json.perSymbol.map((p) => [p.symbol, p]));
+  assert.equal(byName.SPY.answeredThroughUtc, '2026-09-25T11:30:00.000Z');
+  assert.equal(byName.NOSESS.setAside, 'SESSION_NOT_DEFINED');
+  assert.deepEqual(r.json.commonScope, { symbols: 2, excluded: ['NOSESS'] });
+  assert.equal(byName.OFF, undefined, 'disabled symbols are not part of the run');
+  assert.match(backend.db.jobs[0].error_message, /110 candle\(s\) outside the research window \(09:30–11:00 America\/New_York\) not stored/);
+  assert.equal(backend.db.candles.length, 180);
+  assert.ok(backend.db.candles.every((c) => c.timestamp_utc >= '2026-09-24T13:30:00.000Z' && c.timestamp_utc < '2026-09-24T15:00:00.000Z'));
+  assert.equal(backend.db.progress.length, 2, 'import_progress refreshed for both symbols');
+});
+
+test('balanced: a second run finds everything answered and calls the provider for nothing', async () => {
+  const backend = fakeBackend({ tdRows: { '2026-09-24T13:30:00': bars('2026-09-24T13:30:00Z', 90) } });
+  const h = handler(backend);
+  await h(post({ balanced: true }));
+  const calls = backend.db.tdCalls.length;
+  const r = await read(await h(post({ balanced: true })));
+  assert.equal(r.json.jobs.length, 0);
+  assert.equal(backend.db.tdCalls.length, calls);
+  assert.equal(r.json.commonAnsweredThroughUtc, '2026-09-25T11:30:00.000Z');
+});
+
+test('balanced: maxJobs limits the run and the plan cap is enforced', async () => {
+  const backend = fakeBackend();
+  const one = await read(await handler(backend, {}, NOW, '2026-09-10T00:00:00.000Z')(post({ balanced: true, maxJobs: 1 })));
+  assert.equal(one.json.jobs.length, 1);
+  assert.equal(one.json.stoppedReason, 'JOB_LIMIT_REACHED');
+  assert.equal((await handler(backend)(post({ balanced: true, maxJobs: 8 }))).status, 400);
+  assert.equal((await handler(backend)(post({ balanced: true, symbol: 'SPY' }))).status, 400);
+});
+
+test('a symbol without a research window cannot be imported one-by-one either', async () => {
+  const r = await read(await handler(fakeBackend())(post({ symbol: 'NOSESS', startUtc: '2026-09-24T13:30:00Z', endUtc: '2026-09-24T15:00:00Z' })));
+  assert.equal(r.status, 422);
+  assert.equal(r.json.error.code, 'SESSION_NOT_DEFINED');
 });
 
 // ------------------------------------------------------------------ refusals

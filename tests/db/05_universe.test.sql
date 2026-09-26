@@ -25,8 +25,10 @@ select t.check('universe: US session is America/New_York 09:30 → 11:00 (last c
 select t.check('universe: 90 one-minute candles fit the US window',
   (select distinct extract(epoch from (session_end - session_start)) / 60 from public.symbols where market = 'us_stock') = 90);
 
-select t.check('universe: non-US sessions stay undefined until agreed (SR-09)',
-  not exists (select 1 from public.symbols where market <> 'us_stock' and (session_start is not null or session_end is not null)));
+select t.check('universe: every market uses the 09:30 → 11:00 America/New_York research window (D-025, SR-09)',
+  not exists (select 1 from public.symbols
+              where session_timezone <> 'America/New_York' or session_start <> '09:30' or session_end <> '11:00'
+                 or session_start is null or session_end is null));
 
 select t.check('universe: forex / crypto / gold use Twelve Data "BASE/QUOTE" symbols',
   not exists (select 1 from public.symbols where market <> 'us_stock' and provider_symbol !~ '^[A-Z]{3}/[A-Z]{3}$'));
@@ -46,3 +48,13 @@ select t.check('universe: symbols are configurable data (16th symbol added)', (s
 -- Remove the test-only row again (symbols without candles may be deleted).
 delete from public.symbols where symbol = 'AMZN';
 select t.check('universe: back to 15 after removing the test row', (select count(*) from public.symbols) = 15);
+
+-- The research-window migration only fills undefined sessions (D-025).
+update public.symbols set session_start = '08:00', session_end = '09:00' where symbol = 'EUR/USD';
+update public.symbols set session_start = null, session_end = null, session_timezone = 'UTC' where symbol = 'BTC/USD';
+\ir ../../supabase/migrations/20260926100000_research_window_all_markets.sql
+select t.check('universe: window migration fills an undefined session',
+  (select (session_timezone, session_start, session_end) = ('America/New_York', '09:30'::time, '11:00'::time) from public.symbols where symbol = 'BTC/USD'));
+select t.check('universe: window migration never overwrites a session the owner set',
+  (select session_start = '08:00' from public.symbols where symbol = 'EUR/USD'));
+update public.symbols set session_start = '09:30', session_end = '11:00' where symbol = 'EUR/USD';

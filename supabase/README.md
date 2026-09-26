@@ -14,6 +14,7 @@ Server side of the platform.
 | `functions/_shared/server/` | Shared server helpers: secret-key guard, PostgREST client, symbol + provider loading |
 | `functions/_shared/importer/` | Import job engine, candle validation, storage (TASK 008) |
 | `functions/importer/` | `importer` Edge Function entry point (TASK 008) |
+| `functions/_shared/importer/config.js` | History start for balanced imports (D-025) |
 
 ## market-data Edge Function (TASK 007)
 
@@ -57,6 +58,11 @@ candles `refresh_import_progress` updates `import_progress`.
 Duplicates (TASK 010, D-024): identical repeats are stored once and counted; two different
 versions of one minute are both rejected (`CONFLICTING_DUPLICATE`); minutes already stored are
 skipped and compared — a provider revision is reported (`REVISED_BY_PROVIDER`), never written.
+
+Research window and GET DATA (TASK 011, D-025, D-026): only candles inside the symbol's window
+(`symbols.session_*`, 09:30–11:00 America/New_York) are stored. `{ "balanced": true }` imports
+all enabled symbols from `_shared/importer/config.js` → `HISTORY_START_UTC`, one window at a time
+for the symbol furthest behind, and reports each symbol's frontier and the common frontier.
 
 ## Secrets
 

@@ -4,13 +4,47 @@
  * a report (stdout and the GitHub run summary). Inputs come from environment
  * variables so workflow inputs are never interpolated into shell code.
  *
- *   SUPABASE_URL, SUPABASE_SECRET_KEY, IMPORT_SYMBOL, IMPORT_MODE (range | continue),
+ *   SUPABASE_URL, SUPABASE_SECRET_KEY, IMPORT_SYMBOL, IMPORT_MODE (balanced | range | continue),
  *   IMPORT_START, IMPORT_END (range mode only), IMPORT_MAX_JOBS
  */
 import { appendFile } from 'node:fs/promises';
 
 /** Markdown report of an importer response. Never includes request headers. */
+/** Report for a balanced (GET DATA) run: per-symbol progress and the common frontier. */
+export function formatBalancedReport(status, json) {
+  const lines = ['## Import run — balanced, all enabled symbols (GET DATA)', '', `HTTP ${status}`, ''];
+  if (!json?.ok) {
+    const e = json?.error ?? {};
+    lines.push(`**Refused / failed** \`${e.code ?? 'unknown'}\`: ${e.message ?? '(no message)'}`);
+    return lines.join('\n');
+  }
+  const excluded = json.commonScope?.excluded ?? [];
+  lines.push(
+    json.upToDate
+      ? `Up to date: every enabled symbol is answered from ${json.historyStartUtc} to ${json.settledUntilUtc}.`
+      : `Run id: \`${json.runId}\` · jobs: ${json.jobs.length} · received ${json.totals.received}, stored ${json.totals.inserted}, duplicates ${json.totals.duplicates}`,
+    `History: ${json.historyStartUtc} → ${json.settledUntilUtc}`,
+    `**Common frontier** (all ${json.commonScope?.symbols ?? '?'} importable symbols answered through): \`${json.commonAnsweredThroughUtc}\`` +
+      (excluded.length ? ` — not importable: ${excluded.join(', ')}` : ''),
+    json.stoppedReason ? `Stopped: **${json.stoppedReason}**` : '',
+    json.interruptedJobsClosed ? `Interrupted jobs closed: ${json.interruptedJobsClosed}` : '',
+    json.progressError ? `Progress refresh failed: ${json.progressError}` : '',
+    '',
+    '| Symbol | Answered through (UTC) | Complete | Jobs | Stored | Set aside |',
+    '|---|---|---|---|---|---|',
+    ...json.perSymbol.map((p) =>
+      `| ${p.symbol} | ${p.answeredThroughUtc ?? '—'} | ${p.complete ? 'yes' : 'no'} | ${p.jobs ?? 0} | ${p.inserted ?? 0} | ${p.setAside ?? ''} |`),
+  );
+  if (json.jobs.length) {
+    lines.push('', '| Job | Symbol | Window (UTC) | Status | Received | Stored | Duplicates | Code | Note |', '|---|---|---|---|---|---|---|---|---|',
+      ...json.jobs.map((j) =>
+        `| ${j.jobId} | ${j.symbol} | ${j.startUtc} → ${j.endUtc} | ${j.status} | ${j.received_count ?? 0} | ${j.inserted_count ?? 0} | ${j.duplicate_count ?? 0} | ${j.error_code ?? ''} | ${(j.error_message ?? '').replace(/\|/g, '/')} |`));
+  }
+  return lines.filter((l, i) => l !== '' || lines[i - 1] !== '').join('\n');
+}
+
 export function formatReport(status, json, request) {
+  if (request.balanced) return formatBalancedReport(status, json);
   const what = request.continue ? 'continue from checkpoint' : `${request.startUtc} → ${request.endUtc}`;
   const lines = [`## Import run — ${request.symbol} (${what})`, '', `HTTP ${status}`, ''];
   if (!json?.ok) {
@@ -43,12 +77,16 @@ export function formatReport(status, json, request) {
 
 async function main() {
   const { SUPABASE_URL: base, SUPABASE_SECRET_KEY: key } = process.env;
-  const continuing = (process.env.IMPORT_MODE ?? 'range') === 'continue';
-  const request = {
-    symbol: process.env.IMPORT_SYMBOL,
-    ...(continuing ? { continue: true } : { startUtc: process.env.IMPORT_START, endUtc: process.env.IMPORT_END }),
-    maxJobs: Number(process.env.IMPORT_MAX_JOBS ?? 4),
-  };
+  const mode = process.env.IMPORT_MODE ?? 'range';
+  const maxJobs = Number(process.env.IMPORT_MAX_JOBS ?? 4);
+  const request =
+    mode === 'balanced'
+      ? { balanced: true, maxJobs }
+      : {
+          symbol: process.env.IMPORT_SYMBOL,
+          ...(mode === 'continue' ? { continue: true } : { startUtc: process.env.IMPORT_START, endUtc: process.env.IMPORT_END }),
+          maxJobs,
+        };
   if (!base || !key?.startsWith('sb_secret_')) {
     console.error('SUPABASE_URL and a Supabase secret key (SUPABASE_SECRET_KEY, starts with sb_secret_) are required.');
     process.exit(2);

@@ -39,3 +39,18 @@ test('continue mode: checkpoint, progress and up-to-date reports', () => {
   assert.match(out, /100 candles, a → b · common dataset: not yet/);
   assert.match(formatReport(200, { ok: true, upToDate: true, checkpointUtc: 'x', settledUntilUtc: 'y' }, c), /Up to date: answered through `x`/);
 });
+
+test('balanced report: common frontier, excluded symbols, per-symbol table', () => {
+  const out = formatReport(200, {
+    ok: true, runId: 'r-3', mode: 'balanced', historyStartUtc: 'H', settledUntilUtc: 'S', upToDate: false,
+    commonAnsweredThroughUtc: 'C', commonScope: { symbols: 14, excluded: ['XAU/USD'] }, stoppedReason: 'JOB_LIMIT_REACHED',
+    totals: { received: 10, inserted: 5, duplicates: 0 },
+    perSymbol: [{ symbol: 'SPY', answeredThroughUtc: 'A', complete: false, jobs: 1, inserted: 5, setAside: null }, { symbol: 'XAU/USD', setAside: 'SESSION_NOT_DEFINED' }],
+    jobs: [{ jobId: 9, symbol: 'SPY', startUtc: 'a', endUtc: 'b', status: 'succeeded', received_count: 10, inserted_count: 5, duplicate_count: 0 }],
+  }, { balanced: true });
+  assert.match(out, /Common frontier\*\* \(all 14 importable symbols answered through\): `C` — not importable: XAU\/USD/);
+  assert.match(out, /\| SPY \| A \| no \| 1 \| 5 \|  \|/);
+  assert.match(out, /\| XAU\/USD \| — \| no \| 0 \| 0 \| SESSION_NOT_DEFINED \|/);
+  assert.match(out, /\| 9 \| SPY \| a → b \| succeeded/);
+  assert.match(formatReport(200, { ok: true, upToDate: true, historyStartUtc: 'H', settledUntilUtc: 'S', commonAnsweredThroughUtc: 'S', perSymbol: [], jobs: [] }, { balanced: true }), /Up to date/);
+});

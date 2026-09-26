@@ -10,9 +10,13 @@ export const SECRET = ['sb', 'secret', 'importfake0123456789'].join('_');
 export const TD_KEY = ['td', 'live', 'importfake98765'].join('_');
 export const BASE = 'https://project.supabase.test';
 
+const NY = { session_timezone: 'America/New_York', session_start: '09:30:00', session_end: '11:00:00' };
 export const SYMBOLS = [
-  { id: 1, symbol: 'SPY', market: 'us_stock', provider: 'twelve_data', provider_symbol: 'SPY', enabled: true },
-  { id: 2, symbol: 'QQQ', market: 'us_stock', provider: 'twelve_data', provider_symbol: 'QQQ', enabled: true },
+  { id: 1, symbol: 'SPY', market: 'us_stock', provider: 'twelve_data', provider_symbol: 'SPY', enabled: true, ...NY },
+  { id: 2, symbol: 'QQQ', market: 'us_stock', provider: 'twelve_data', provider_symbol: 'QQQ', enabled: true, ...NY },
+  // Enabled but without a research window: must be reported, never imported.
+  { id: 3, symbol: 'NOSESS', market: 'forex', provider: 'twelve_data', provider_symbol: 'NOSESS', enabled: true, session_timezone: 'UTC', session_start: null, session_end: null },
+  { id: 4, symbol: 'OFF', market: 'us_stock', provider: 'twelve_data', provider_symbol: 'OFF', enabled: false, ...NY },
 ];
 
 /** Twelve Data style bars for n minutes from startIso (UTC). */

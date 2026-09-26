@@ -246,3 +246,6 @@ The `relationships(...)` index in INDEXES is created on `orb_relationships`.
 * Duplicates (D-024): besides the unique key, the importer stores one version per minute only
   when a response is consistent, never overwrites a stored minute, and records
   `CONFLICTING_DUPLICATE` / `REVISED_BY_PROVIDER` warnings on the import job.
+* Stored candles are limited to each symbol's research window (`symbols.session_*`, 09:30–11:00
+  America/New_York for every market since D-025). Candles outside it are counted on the import
+  job but not stored.

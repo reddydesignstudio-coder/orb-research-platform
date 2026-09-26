@@ -126,8 +126,9 @@ puts every file in its correct folder, removes stray files, and starts the deplo
 * **Provider live check** (`.github/workflows/live-check.yml`, manual): 5 paced calls to the
   deployed function; report in the run summary. Needs the `SUPABASE_SECRET_KEY` repository
   secret (a Supabase secret key).
-* **Import run** (`.github/workflows/import-run.yml`, manual): one import run for a symbol —
-  a UTC range, or `continue` from its checkpoint — through the `importer` function; report in the run summary. Uses
+* **Import run** (`.github/workflows/import-run.yml`, manual): `balanced` (GET DATA — all enabled
+  symbols, furthest behind first), or one symbol by UTC range or `continue` from its checkpoint —
+  through the `importer` function; only 09:30–11:00 New York candles are stored; report in the run summary. Uses
   `SUPABASE_SECRET_KEY`. Each provider request costs 1 Twelve Data credit.
 * **Pages** (`.github/workflows/pages.yml`): after checks pass, `frontend/` is published to
   GitHub Pages on every push to `main`. One-time setup: Settings → Pages → Source:

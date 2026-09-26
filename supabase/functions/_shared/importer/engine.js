@@ -6,7 +6,8 @@
  *      the missing parts are split into windows no larger than the provider's
  *      VERIFIED safe size, so no response can be truncated unnoticed (§6.2);
  *   2. windows are processed oldest first, one import_jobs row per window;
- *   3. each job: fetch → validate → deduplicate (TASK 010: repeats inside the
+ *   3. each job: fetch → keep the research window (TASK 011, D-025) → validate →
+ *      deduplicate (TASK 010: repeats inside the
  *      response, conflicting versions, minutes already stored, provider
  *      revisions — see dedupe.js) → store → record counts, status and errors;
  *   4. the run STOPS at the first window that is not definitively answered
@@ -62,8 +63,9 @@ const countBy = (items, key) => {
  * Facts recorded with a succeeded job: rows not stored and why, stored candles the
  * provider now reports differently, and the provider's own indication.
  */
-function jobNotes(result, notStored, revised) {
+function jobNotes(result, notStored, revised, outside) {
   const notes = [];
+  if (outside.count) notes.push(`${outside.count} candle(s) outside the research window (${outside.label}) not stored`);
   const rejected = [...result.rejected, ...notStored];
   if (rejected.length) notes.push(`${rejected.length} row(s) not stored: ${countBy(rejected, 'reason')}`);
   if (revised.length) {
@@ -82,11 +84,13 @@ function jobNotes(result, notStored, revised) {
  * @param {import('../providers/retrieval.js').TimeRange} p.range
  * @param {{ start: string, end: string }[]} [p.answered]   merged answered coverage (skipped)
  * @param {ReturnType<import('./store.js').createImportStore>} p.store
+ * @param {{ label: string, contains: (iso: string) => boolean } | null} [p.keep]
+ *        research window (session.js); candles outside it are counted, not stored (D-025)
  * @param {number} p.maxJobs                                  windows to process in this run
  * @param {() => number} [p.now]
  * @param {string[]} [p.secrets]
  */
-export async function runImport({ runId, symbolRow, config, provider, range, answered = [], store, maxJobs, now = Date.now, secrets = [] }) {
+export async function runImport({ runId, symbolRow, config, provider, range, answered = [], store, maxJobs, keep = null, now = Date.now, secrets = [] }) {
   const caps = provider.capabilities();
   const maxMinutes = requireVerified(caps, 'maxSafeRangeMinutes');
   const gaps = missingRanges(range, answered);
@@ -119,7 +123,9 @@ export async function runImport({ runId, symbolRow, config, provider, range, ans
     let patch;
     try {
       const result = await provider.fetchCandles(defineRequest({ symbol: resolved, range: window }));
-      const { valid, invalid } = validateCandles(result.candles);
+      const inWindow = keep ? result.candles.filter((c) => keep.contains(c.timestampUtc)) : result.candles;
+      const outside = { count: result.candles.length - inWindow.length, label: keep?.label };
+      const { valid, invalid } = validateCandles(inWindow);
       const { unique, repeats, conflicting } = dedupeResponse(valid);
       const insertedMinutes = new Set(await store.insertCandles(symbolRow.id, unique));
       const alreadyStored = unique.filter((c) => !insertedMinutes.has(c.timestampUtc));
@@ -135,7 +141,7 @@ export async function runImport({ runId, symbolRow, config, provider, range, ans
         inserted_count: insertedMinutes.size,
         duplicate_count: repeats + alreadyStored.length,
         error_code: answered ? warning : 'RANGE_NOT_COMPLETE',
-        error_message: answered ? jobNotes(result, [...invalid, ...conflicting], revised) : completeness.reason,
+        error_message: answered ? jobNotes(result, [...invalid, ...conflicting], revised, outside) : completeness.reason,
       };
     } catch (e) {
       const pe = e instanceof ProviderError ? e : null;
