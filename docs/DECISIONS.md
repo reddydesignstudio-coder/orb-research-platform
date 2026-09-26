@@ -464,3 +464,29 @@ timezone and deployment decisions require owner approval (INSTRUCTIONS.md §4).
 * **Session check workflow** (manual, read-only): runs the validator over stored candles; a
   session whose window has not yet been answered by a succeeded import job is "not yet
   imported", not missing.
+
+## D-029 — Data quality engine (TASK 014)
+
+* **Date:** 2026-09-26 · **Task:** TASK 014 · **Type:** Implementation (data quality)
+* **Unit:** one `data_quality` row per symbol and session date (session = D-028). Computed by the
+  `data-quality` Edge Function from stored candles only (`_shared/quality/`), upserted on
+  `(symbol_id, session_date)`; `checked_at` records when.
+* **Counts:** expected (90 open / 0 closed); actual = distinct stored minutes in the window;
+  missing = expected minutes without a candle; duplicates = repeated timestamps (0 by the unique
+  key, still counted); invalid OHLC (same rules as the importer, also enforced by the database);
+  invalid timestamps = candles in the window on a **closed** day, or not on a whole minute.
+* **Status** (first match): `invalid` (any duplicate / invalid OHLC / invalid timestamp) →
+  `market_closed` (closed, nothing stored) → `no_data` (open, nothing stored) → `incomplete`
+  (open, some minutes missing) → `complete`.
+* **`details`** (jsonb): UTC window and label, closed reason (weekend / holiday name), missing
+  minutes as New York time ranges ("09:31–09:33"), up to 50 invalid timestamps / OHLC problems —
+  so every number can be explained without re-reading candles.
+* **Only imported data is judged:** a session is checked only once its whole window is answered
+  by succeeded import jobs (D-023). Sessions not yet imported get no row, so they never appear as
+  missing data. Rows can be re-checked by range.
+* **Nothing is changed in the candles:** no filling, no deleting, no shifting. Invalid data (e.g.
+  gold candles on a Saturday) is reported with its reason and stays stored; excluding it from
+  research is a later, explicit research-module decision.
+* **When it runs:** after every hourly *Import scheduler* run (new sessions only), and on demand
+  with the manual *Data quality* workflow (pending or range). Later the Admin/Data pages (TASK 015)
+  read these rows.

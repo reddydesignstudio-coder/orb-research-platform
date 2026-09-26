@@ -11,11 +11,14 @@
  *                                         MAX_FAILURES in a row (PROVIDERS.md §9);
  *   - authentication / configuration    → stop and fail loudly (needs the owner);
  *   - everything answered               → stop.
+ * Then it checks the data quality of every newly imported session (TASK 014:
+ * data-quality function, reads stored candles only) and adds that to the report.
  * The importer enforces the credit budget itself; this loop only paces and retries.
  *
  * Env: SUPABASE_URL, SUPABASE_SECRET_KEY, RUN_MINUTES (default 50).
  */
 import { appendFile } from 'node:fs/promises';
+import { callQuality, formatQualityReport, runPending } from './data-quality.mjs';
 
 export const MAX_JOBS_PER_CALL = 7;
 export const MAX_FAILURES = 4;
@@ -152,10 +155,15 @@ async function main() {
     }
   }
 
-  const report = formatSchedulerReport({ startedAt, calls, stopReason: stop.reason, failed: stop.failed, last }).split(key).join('[REDACTED]');
+  const quality = await runPending((body) => callQuality(base, key, body));
+  console.log(`data quality: ${quality.calls} call(s)${quality.error ? `, problem: ${quality.error}` : ''}`);
+  const report = [
+    formatSchedulerReport({ startedAt, calls, stopReason: stop.reason, failed: stop.failed, last }),
+    formatQualityReport(quality),
+  ].join('\n\n').split(key).join('[REDACTED]');
   console.log(report);
   if (process.env.GITHUB_STEP_SUMMARY) await appendFile(process.env.GITHUB_STEP_SUMMARY, report + '\n');
-  if (stop.failed) process.exit(1);
+  if (stop.failed || quality.error) process.exit(1);
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) main();

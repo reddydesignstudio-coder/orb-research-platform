@@ -70,8 +70,11 @@ Supporting engineering docs live in [`docs/`](docs/README.md).
 │       ├── _shared/market-data/          market-data handler + config (TASK 007)
 │       ├── _shared/server/               shared server helpers        (TASK 008)
 │       ├── _shared/importer/             import job engine            (TASK 008)
+│       ├── _shared/sessions/             market calendars, session validator (TASK 013)
+│       ├── _shared/quality/              data quality engine          (TASK 014)
 │       ├── market-data/                  market-data Edge Function    (TASK 007)
-│       └── importer/                     importer Edge Function       (TASK 008)
+│       ├── importer/                     importer Edge Function       (TASK 008)
+│       └── data-quality/                 data-quality Edge Function   (TASK 014)
 ├── tests/                               node:test unit tests; tests/db/ SQL schema tests
 └── scripts/
     ├── serve.mjs                        Local dev server
@@ -81,6 +84,7 @@ Supporting engineering docs live in [`docs/`](docs/README.md).
     ├── import-run.mjs                   Import run (manual workflow)
     ├── import-scheduler.mjs             Import scheduler (hourly workflow)
     ├── session-check.mjs                Session check (read-only, manual workflow)
+    ├── data-quality.mjs                 Data quality run (manual workflow; also run by the scheduler)
     └── verify-foundation.sh             Structure + secret-hygiene check
 ```
 
@@ -122,7 +126,7 @@ puts every file in its correct folder, removes stray files, and starts the deplo
   `SUPABASE_DB_URL` repository secret (Settings → Secrets and variables → Actions) — the
   Supabase *Session pooler* connection string. The password lives only in GitHub Secrets.
 * **Edge Functions** (`.github/workflows/functions.yml`): after `npm run check`, deploys every
-  function in `supabase/functions` (`market-data`, `importer`). Needs the `SUPABASE_ACCESS_TOKEN` repository secret (a Supabase
+  function in `supabase/functions` (`market-data`, `importer`, `data-quality`). Needs the `SUPABASE_ACCESS_TOKEN` repository secret (a Supabase
   personal access token). The Twelve Data key is set only in Supabase (Edge Functions →
   Secrets → `TWELVE_DATA_API_KEY`), never in GitHub.
 * **Provider live check** (`.github/workflows/live-check.yml`, manual): 5 paced calls to the
@@ -134,7 +138,11 @@ puts every file in its correct folder, removes stray files, and starts the deplo
   `SUPABASE_SECRET_KEY`. Each provider request costs 1 Twelve Data credit.
 * **Import scheduler** (`.github/workflows/import-scheduler.yml`, hourly): repeats balanced
   GET DATA runs for up to 50 minutes within the credit budget (≤ 7 requests/minute, ≤ 780/day),
-  waits, backs off and resumes automatically. Pause it with *Disable workflow* in the Actions tab.
+  waits, backs off and resumes automatically, then checks the data quality of the newly imported
+  sessions (TASK 014). Pause it with *Disable workflow* in the Actions tab.
+* **Data quality** (`.github/workflows/data-quality.yml`, manual): `pending` checks every imported
+  session without a `data_quality` row; `range` re-checks one symbol between two dates and lists
+  each session (missing minutes in New York time). No provider call, no credits.
 * **Session check** (`.github/workflows/session-check.yml`, manual): read-only report of stored
   candles against the session validator — complete / incomplete / no-data sessions per symbol,
   holidays, and any candles on closed days. No provider call, no credits.

@@ -30,6 +30,10 @@ Files must be named `*.test.js`.
 | `sessions/calendar.test.js` | Market calendars (TASK 013): NYSE rules reproduce the official 2025–2028 holiday dates, observed days, Easter, special closure 2025-01-09, early closes open, FX/gold weekdays except 25 Dec / 1 Jan, crypto daily |
 | `sessions/validator.test.js` | Session validator: 90 expected candles, UTC window across EDT/EST and DST-change days, closed days expect 0, one-year session counts per market, candle checks (complete / incomplete / no data / outside window / candles on closed days), DST gap and overlap |
 | `session-check.test.js` | Session-check report: not-yet-imported sessions are not counted as missing |
+| `quality/assess.test.js` | Data quality of one session (TASK 014): complete, incomplete with New York missing ranges, the every-other-minute pattern, no data, market closed, candles on a closed day, duplicates, invalid OHLC |
+| `quality/handler.test.js` | data-quality function against a fake PostgREST (`quality/fake-db.js`): pending stops at the import frontier, crypto weekends open, per-symbol limit, range re-check (upsert), refusals, database errors |
+| `data-quality-script.test.js` | Data quality script: repeated pending calls and merge, error / call limit, reports |
+| `db/30_quality.test.sql` | data_quality upsert as PostgREST does it, details object, count and closed-day constraints, browser role cannot write |
 | `import-scheduler.test.js` | Scheduler decisions: wait for budget / rate limit, stop at the daily limit, exponential backoff and give-up, loud stop on auth/config, report |
 | `import-run.test.js` | Import-run report (range and continue modes) |
 | `db/20_importer.test.sql` | The importer's SQL as service_role: ON CONFLICT DO NOTHING, exact decimals, null volume, timestamp_et, job outcomes and constraints; `refresh_import_progress` incl. common dataset and browser-role refusal; duplicate facts (in-statement versions, unique key, exact `::text`, immutability) |

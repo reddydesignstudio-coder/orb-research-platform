@@ -427,3 +427,9 @@ entrypoint = "./functions/market-data/index.ts"
 enabled = true
 verify_jwt = false
 entrypoint = "./functions/importer/index.ts"
+
+# data-quality (TASK 014): server-to-server only, same access rule (D-020). Reads candles, writes data_quality.
+[functions.data-quality]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/data-quality/index.ts"

@@ -324,7 +324,7 @@ Implement timezone-aware trading session validation.
 Status:
 
 ```text
-IN PROGRESS
+COMPLETE
 ```
 
 Delivered: `_shared/sessions/` — market calendars (NYSE holiday rules + special closures incl.
@@ -333,8 +333,16 @@ and the validator (session per symbol and local date: open/closed with reason, w
 expected candles 90 or 0; candle check: present / missing / outside window / on closed days).
 Read-only *Session check* workflow. Decision D-028; SR-10 resolved.
 
-Verified so far: all unit tests; the NYSE rules reproduce the official nyse.com holiday table for
-2026–2028 exactly, and NYSE's 2025 dates. Live: *Session check* over the stored history (pending).
+Verified: all unit tests (232); the NYSE rules reproduce the official nyse.com holiday table for
+2026–2028 exactly, and NYSE's 2025 dates. Deployed 2026-09-26 (all workflows green).
+*Session check* #2 over 2025-09-26 → 2026-01-03 on the stored data (imported so far to early
+November 2025): stocks and forex have **0 candles on any weekend**; not-yet-imported sessions are
+reported separately, not as missing; nothing outside the window. Findings handed to TASK 014:
+AUD/USD holds only 45 of 90 candles every day (a provider gap already seen in TASK 011);
+isolated incomplete days (e.g. 2025-10-10 AAPL 89, QQQ 87; EUR/USD 2025-11-03 68/90); XAU/USD
+has candles on two Saturdays (2025-09-27: 29, 2025-10-04: 28) — reported, not dropped.
+Holidays (Thanksgiving, Christmas, New Year) and the FX 25 Dec / 1 Jan assumption will be seen in
+the data once the importer reaches them; re-run *Session check* then.
 
 ---
 
@@ -345,8 +353,16 @@ Implement missing/duplicate/OHLC/session validation.
 Status:
 
 ```text
-TODO
+IN PROGRESS
 ```
+
+Delivered: `data-quality` Edge Function + `_shared/quality/` — one `data_quality` row per symbol
+and session (expected / actual / missing / duplicate / invalid OHLC / invalid timestamps, first
+and last candle, status, `details` with missing minutes in New York time). Only sessions whose
+window has been imported are checked. Runs after every *Import scheduler* run and on demand
+(*Data quality* workflow). Migration adds `checked_at`, `details`. Decision D-029.
+
+Verified so far: all unit tests and database tests. Live: pending.
 
 ---
 

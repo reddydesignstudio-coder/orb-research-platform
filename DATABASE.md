@@ -98,6 +98,12 @@ status
 created_at
 ```
 
+Implementation additions: `invalid_ohlc_candles`, `invalid_timestamp_candles` (D-009),
+`checked_at`, `details` jsonb (TASK 014, D-029: UTC window, closed reason, missing minutes as
+New York time ranges, invalid timestamps / OHLC). One row per symbol and session date, written
+only by the data-quality function (upsert). Status: `complete`, `incomplete`, `no_data`,
+`invalid`, `market_closed`; `actual + missing ≥ expected`.
+
 ---
 
 ## orb_events

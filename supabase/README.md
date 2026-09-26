@@ -14,6 +14,9 @@ Server side of the platform.
 | `functions/_shared/server/` | Shared server helpers: secret-key guard, PostgREST client, symbol + provider loading |
 | `functions/_shared/importer/` | Import job engine, candle validation, storage (TASK 008) |
 | `functions/importer/` | `importer` Edge Function entry point (TASK 008) |
+| `functions/_shared/sessions/` | Market calendars, session validator (TASK 013) |
+| `functions/_shared/quality/` | Data quality engine (TASK 014) |
+| `functions/data-quality/` | `data-quality` Edge Function entry point (TASK 014) |
 | `functions/_shared/importer/config.js` | History start for balanced imports (D-025) |
 
 ## market-data Edge Function (TASK 007)
@@ -69,6 +72,15 @@ recorded requests — at most 7 per rolling minute and 780 per UTC day for Twelv
 (`CREDIT_RESERVE_PER_DAY` = 20 left for manual checks) — and otherwise stops with
 `MINUTE_BUDGET_REACHED` / `DAILY_BUDGET_REACHED` and `retryAtUtc`. Every response includes
 `budget` (usage and when the next request is allowed).
+
+## data-quality Edge Function (TASK 014)
+
+`POST /functions/v1/data-quality` — same access rule as `market-data` (secret key only).
+`{ "pending": true, "perSymbol"?: 1–100 }` writes a `data_quality` row for every session that has
+been fully answered by succeeded import jobs and has no row yet (date order, up to `perSymbol`
+per symbol per call, stopping at the import frontier — data not yet imported is never "missing").
+`{ "symbol", "from", "to" }` re-checks one symbol (≤ 120 days, `to` exclusive) and returns every
+session. Statuses and counts: see D-029. Reads candles only; no provider call.
 
 ## Secrets
 

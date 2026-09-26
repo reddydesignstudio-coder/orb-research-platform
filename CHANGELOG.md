@@ -1,5 +1,22 @@
 # CHANGELOG
 
+## TASK 014 — Data Quality Engine — 2026-09-26
+
+Added
+
+* `supabase/functions/_shared/quality/` (`assess.js`, `run.js`, `store.js`, `handler.js`) and the
+  `data-quality` Edge Function (`supabase/functions/data-quality/`, `config.toml`).
+* Migration `20260926140000_data_quality_details.sql`: `data_quality.checked_at`, `details`
+  (jsonb object), `actual + missing ≥ expected` check.
+* `scripts/data-quality.mjs` + `.github/workflows/data-quality.yml` (manual: pending / range).
+* Tests: `tests/quality/assess.test.js`, `tests/quality/handler.test.js`,
+  `tests/data-quality-script.test.js`, `tests/db/30_quality.test.sql`. Decision D-029.
+
+Changed
+
+* `scripts/import-scheduler.mjs`: after its import loop, checks the quality of newly imported
+  sessions and adds the result to the run report.
+
 ## TASK 013 — Session Validator — 2026-09-26
 
 Added
@@ -16,6 +33,9 @@ Added
 Changed
 
 * `_shared/importer/session.js` uses the shared time helpers (behaviour unchanged).
+
+Verified live: *Session check* #2 — 0 weekend candles for stocks/forex; findings for TASK 014
+(AUD/USD 45/90 per day, XAU/USD candles on two Saturdays, a few incomplete days).
 
 ## TASK 012 — Rate Limit Handling — 2026-09-26
 
