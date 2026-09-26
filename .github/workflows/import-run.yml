@@ -1,8 +1,10 @@
-# Import run (TASK 008). Manual only: Actions → Import run → Run workflow.
+# Import run (TASK 008, 009). Manual only: Actions → Import run → Run workflow.
 #
-# Starts ONE import run for one symbol and UTC range through the deployed
-# importer function: candles are stored, every provider request is recorded
-# in import_jobs under a new run id. Each job uses 1 Twelve Data credit.
+# Starts ONE import run for one symbol through the deployed importer function:
+#   mode "range"     import start_utc → end_utc (already answered parts skipped)
+#   mode "continue"  resume from the symbol's checkpoint up to the latest settled minute
+# Candles are stored; every provider request is recorded in import_jobs under a
+# new run id. Each job uses 1 Twelve Data credit.
 # The Admin "GET DATA" button replaces this in TASK 015.
 #
 # Needs the repository secret SUPABASE_SECRET_KEY (same as Provider live check).
@@ -15,12 +17,18 @@ on:
         description: 'Symbol exactly as in the symbols table (e.g. SPY, EUR/USD)'
         required: true
         default: 'SPY'
+      mode:
+        description: 'range = the dates below; continue = resume from the checkpoint (dates ignored)'
+        required: true
+        type: choice
+        options: [range, continue]
+        default: range
       start_utc:
-        description: 'Range start, UTC (e.g. 2026-09-24T13:30:00Z)'
-        required: true
+        description: 'Range start, UTC (e.g. 2026-09-24T13:30:00Z) — range mode'
+        required: false
       end_utc:
-        description: 'Range end, UTC, exclusive (e.g. 2026-09-24T15:00:00Z)'
-        required: true
+        description: 'Range end, UTC, exclusive (e.g. 2026-09-24T15:00:00Z) — range mode'
+        required: false
       max_jobs:
         description: 'Provider requests in this run (1–7; each ≤ 4 999 minutes)'
         required: true
@@ -40,6 +48,7 @@ jobs:
       SUPABASE_URL: https://mfsdctxhtinldnkffgbv.supabase.co
       SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
       IMPORT_SYMBOL: ${{ inputs.symbol }}
+      IMPORT_MODE: ${{ inputs.mode }}
       IMPORT_START: ${{ inputs.start_utc }}
       IMPORT_END: ${{ inputs.end_utc }}
       IMPORT_MAX_JOBS: ${{ inputs.max_jobs }}
