@@ -1,0 +1,43 @@
+# Session check (TASK 013, D-028). Manual only: Actions → Session check → Run workflow.
+#
+# Read-only: compares the candles stored in Supabase with the session validator
+# (open days expect 90 candles in 09:30–11:00 New York, weekends/holidays expect 0)
+# and writes a per-symbol report to the run summary. No provider call, no credits.
+name: Session check
+
+on:
+  workflow_dispatch:
+    inputs:
+      from:
+        description: First session date (YYYY-MM-DD, inclusive)
+        default: '2025-09-26'
+        required: true
+      to:
+        description: Last session date (YYYY-MM-DD, exclusive)
+        default: '2026-01-03'
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  session-check:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: https://mfsdctxhtinldnkffgbv.supabase.co
+      SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+      FROM: ${{ inputs.from }}
+      TO: ${{ inputs.to }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+      - name: Require the SUPABASE_SECRET_KEY secret
+        run: |
+          if [ -z "$SUPABASE_SECRET_KEY" ]; then
+            echo "::error::SUPABASE_SECRET_KEY is not set. Add it under Settings → Secrets and variables → Actions (see README)."
+            exit 1
+          fi
+      - name: Check stored sessions and report
+        run: node scripts/session-check.mjs
