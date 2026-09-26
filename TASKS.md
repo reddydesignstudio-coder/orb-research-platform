@@ -265,7 +265,7 @@ Implement fair progress across enabled symbols.
 Status:
 
 ```text
-IN PROGRESS — built and tested; waiting for deployment and a live balanced run
+COMPLETE — 2026-09-26
 ```
 
 Delivered: research window for every market (migration `20260926100000`, `session.js`: only
@@ -277,6 +277,15 @@ Verified so far: all unit tests incl. 6 window and 8 balance tests and 4 balance
 database tests incl. the migration never overwriting an owner-set session; Supabase CLI
 rehearsal of the migration (all 15 symbols → 09:30–11:00 America/New_York).
 
+Production: deployed 2026-09-26 (migration applied, all workflows green). *Import run* #4, mode
+`balanced`, 7 jobs → run `e2f98e4a…`: history 2025-09-26 → 2026-09-26 12:04Z; the 7 symbols first
+by name (AAPL … GBP/USD) each got window 2025-09-26 00:00Z → 09-29 11:19Z. Stored: stocks and
+EUR/USD, GBP/USD 90 (Fri 26 Sep 09:30–10:59 ET), BTC/USD and ETH/USD 270 (Fri–Sun × 90), AUD/USD
+45 (the provider returned 1 015 rows for the block vs ≈ 2 000 for the other pairs — a provider gap,
+recorded as received, never filled). 14 910 rows outside the window counted, not stored. Common
+frontier 2025-09-26 00:00Z (8 symbols not yet started); BTC/ETH blocks returned 4 999 rows = one
+per minute, inside the safe size.
+
 ---
 
 ### TASK 012 — Rate Limit Handling
@@ -286,8 +295,18 @@ Implement quota/rate-limit handling and retry scheduling.
 Status:
 
 ```text
-TODO
+IN PROGRESS — built and tested; waiting for deployment and the first scheduled runs
 ```
+
+Delivered: credit budget in the importer (`budget.js`: ≤ 7 requests per rolling minute, ≤ 780 per
+UTC day, counted from recorded requests; refusals create no job), `retryAtUtc` and `budget` in
+every response, hourly *Import scheduler* workflow + `scripts/import-scheduler.mjs` (waits,
+exponential backoff with jitter, clean stop at the daily limit, loud stop on auth/config).
+Decision D-027; SR-15 resolved.
+
+Verified so far: all unit tests incl. 5 budget, 3 budget-through-the-function and 8 scheduler
+tests; a local run of the scheduler loop against a stand-in importer (waited for the budget,
+backed off after a 502, stopped at the daily limit, exit 0).
 
 ---
 

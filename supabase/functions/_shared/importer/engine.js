@@ -87,10 +87,12 @@ function jobNotes(result, notStored, revised, outside) {
  * @param {{ label: string, contains: (iso: string) => boolean } | null} [p.keep]
  *        research window (session.js); candles outside it are counted, not stored (D-025)
  * @param {number} p.maxJobs                                  windows to process in this run
+ * @param {{ take: () => Promise<null | { code: string, retryAtUtc: string }> } | null} [p.budget]
+ *        credit budget (TASK 012, budget.js): asked before every provider request
  * @param {() => number} [p.now]
  * @param {string[]} [p.secrets]
  */
-export async function runImport({ runId, symbolRow, config, provider, range, answered = [], store, maxJobs, keep = null, now = Date.now, secrets = [] }) {
+export async function runImport({ runId, symbolRow, config, provider, range, answered = [], store, maxJobs, keep = null, budget = null, now = Date.now, secrets = [] }) {
   const caps = provider.capabilities();
   const maxMinutes = requireVerified(caps, 'maxSafeRangeMinutes');
   const gaps = missingRanges(range, answered);
@@ -100,10 +102,19 @@ export async function runImport({ runId, symbolRow, config, provider, range, ans
   const jobs = [];
   let stoppedReason = null;
   let nextStartUtc = null;
+  let retryAtUtc = null;
 
   for (const [index, window] of windows.entries()) {
     if (index >= maxJobs) {
       stoppedReason = 'JOB_LIMIT_REACHED';
+      nextStartUtc = window.startUtc;
+      break;
+    }
+    // Never request beyond the credit budget (TASK 012): no job is created when refused.
+    const refusal = budget ? await budget.take() : null;
+    if (refusal) {
+      stoppedReason = refusal.code;
+      retryAtUtc = refusal.retryAtUtc;
       nextStartUtc = window.startUtc;
       break;
     }
@@ -160,6 +171,7 @@ export async function runImport({ runId, symbolRow, config, provider, range, ans
     if (patch.status !== 'succeeded') {
       stoppedReason = patch.status === 'partial' ? 'RANGE_NOT_COMPLETE' : patch.error_code;
       nextStartUtc = window.startUtc; // this window was not done: resume here
+      retryAtUtc = patch.next_retry_at ?? null;
       break;
     }
   }
@@ -179,5 +191,6 @@ export async function runImport({ runId, symbolRow, config, provider, range, ans
     totals,
     stoppedReason,
     nextStartUtc,
+    retryAtUtc,
   };
 }

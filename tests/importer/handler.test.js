@@ -227,6 +227,41 @@ test('a symbol without a research window cannot be imported one-by-one either', 
   assert.equal(r.json.error.code, 'SESSION_NOT_DEFINED');
 });
 
+// ------------------------------------------------------------------ TASK 012: credit budget
+const recordedJobs = (n, startIso, stepSec) =>
+  Array.from({ length: n }, (_, i) => ({
+    run_id: 'earlier', symbol_id: 1, provider: 'twelve_data', interval: '1min', status: 'succeeded',
+    requested_start: `2020-01-${String(1 + (i % 28)).padStart(2, '0')}T00:00:00.000Z`, requested_end: `2020-01-${String(1 + (i % 28)).padStart(2, '0')}T00:01:00.000Z`,
+    started_at: new Date(Date.parse(startIso) + i * stepSec * 1000).toISOString(),
+  }));
+
+test('budget: 7 requests in the last minute (any run) → refused before any provider call, with the resume time', async () => {
+  const backend = fakeBackend({ jobs: recordedJobs(7, '2026-09-25T11:59:30Z', 1) });
+  const r = await read(await handler(backend)(post({ balanced: true, maxJobs: 7 })));
+  assert.equal(r.status, 200);
+  assert.equal(r.json.jobs.length, 0);
+  assert.equal(r.json.stoppedReason, 'MINUTE_BUDGET_REACHED');
+  assert.equal(r.json.retryAtUtc, '2026-09-25T12:00:30.000Z');
+  assert.equal(backend.db.tdCalls.length, 0, 'no credit spent');
+  assert.deepEqual([r.json.budget.usedLastMinute, r.json.budget.minuteBudget], [7, 7]);
+});
+
+test('budget: 780 requests today → refused until 00:00 UTC (20 credits stay reserved)', async () => {
+  const backend = fakeBackend({ jobs: recordedJobs(780, '2026-09-25T00:00:00Z', 60) });
+  const r = await read(await handler(backend)(post({ symbol: 'SPY', startUtc: '2026-09-24T13:30:00Z', endUtc: '2026-09-24T15:00:00Z' })));
+  assert.equal(r.json.stoppedReason, 'DAILY_BUDGET_REACHED');
+  assert.equal(r.json.retryAtUtc, '2026-09-26T00:00:00.000Z');
+  assert.equal(backend.db.tdCalls.length, 0);
+  assert.deepEqual([r.json.budget.usedToday, r.json.budget.dailyBudget], [780, 780]);
+});
+
+test('budget: yesterday\'s requests do not count; usage is reported with every run', async () => {
+  const backend = fakeBackend({ jobs: recordedJobs(780, '2026-09-24T00:00:00Z', 60), tdRows: { '2026-09-24T13:30:00': bars('2026-09-24T13:30:00Z', 90) } });
+  const r = await read(await handler(backend)(post({ symbol: 'SPY', startUtc: '2026-09-24T13:30:00Z', endUtc: '2026-09-24T15:00:00Z' })));
+  assert.equal(r.json.jobs[0].status, 'succeeded');
+  assert.deepEqual([r.json.budget.usedToday, r.json.budget.usedLastMinute], [1, 1]);
+});
+
 // ------------------------------------------------------------------ refusals
 test('refusals: no secret key, unsettled minutes, maxJobs above plan limit, unknown symbol, mixed modes', async () => {
   const backend = fakeBackend();

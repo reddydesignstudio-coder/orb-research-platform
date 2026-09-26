@@ -34,6 +34,7 @@ function matches(row, params) {
     const have = row[k];
     if (op === 'eq' && String(have) !== want) return false;
     if (op === 'lt' && !(Date.parse(have) < Date.parse(want))) return false;
+    if (op === 'gte' && !(Date.parse(have) >= Date.parse(want))) return false;
   }
   return true;
 }
@@ -82,7 +83,8 @@ export function fakeBackend({ tdRows = {}, tdErrors = {}, jobs = [], candles = [
     if (table === 'import_jobs' && method === 'GET') {
       let rows = db.jobs.filter((j) => matches(j, params)).sort((a, b) => (a.requested_start < b.requested_start ? -1 : a.requested_start > b.requested_start ? 1 : a.id - b.id));
       rows = rows.slice(Number(params.offset ?? 0), Number(params.offset ?? 0) + Number(params.limit ?? 1000));
-      return Response.json(rows.map((r) => ({ requested_start: r.requested_start, requested_end: r.requested_end })));
+      const cols = params.select.split(',');
+      return Response.json(rows.map((r) => Object.fromEntries(cols.map((c) => [c, r[c] ?? null]))));
     }
     if (table === 'import_jobs' && method === 'POST') {
       const row = { id: db.jobs.length + 1, received_count: 0, inserted_count: 0, duplicate_count: 0, ...body[0] };

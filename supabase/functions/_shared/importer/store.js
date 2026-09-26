@@ -58,6 +58,27 @@ export function createImportStore(rest) {
       return Array.isArray(rows) ? rows.length : 0;
     },
 
+    /**
+     * Start times of this provider's recorded requests since `sinceIso` — what the
+     * credit budget counts (TASK 012). One UTC day is at most a few hundred rows.
+     * @returns {Promise<string[]>}
+     */
+    async jobStartsSince(provider, sinceIso) {
+      const out = [];
+      for (let offset = 0; ; offset += PAGE) {
+        const rows = await rest.select('import_jobs', {
+          provider: `eq.${provider}`,
+          started_at: `gte.${sinceIso}`,
+          select: 'started_at',
+          order: 'started_at.asc',
+          limit: String(PAGE),
+          offset: String(offset),
+        });
+        for (const r of rows) if (r.started_at) out.push(new Date(r.started_at).toISOString());
+        if (rows.length < PAGE) return out;
+      }
+    },
+
     /** Recompute import_progress from stored candles (migration 20260925190000). */
     async refreshProgress(symbolId, provider) {
       await rest.rpc('refresh_import_progress', { p_symbol_id: symbolId, p_provider: provider, p_interval: '1min' });

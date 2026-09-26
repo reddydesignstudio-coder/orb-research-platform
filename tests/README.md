@@ -25,7 +25,9 @@ Files must be named `*.test.js`.
 | `importer/dedupe.test.js` | Duplicates (TASK 010): identical repeats, conflicting versions, already stored, provider revisions, exact decimal comparison |
 | `importer/session.test.js` | Research window 09:30–11:00 America/New_York: EDT/EST, DST-change days, exactly 90 minutes/day, weekends, invalid config (TASK 011) |
 | `importer/balance.test.js` | Balanced import: frontier, pick order, round-robin, catch-up, set-aside vs run-stopping failures, one run id; window filter in the engine |
+| `importer/budget.test.js` | Credit budget (TASK 012): per rolling minute and per UTC day, earlier runs count, refusal stops a balanced run before any request |
 | `importer/coverage.test.js` | Answered coverage: merge, missing ranges, checkpoint (TASK 009) |
+| `import-scheduler.test.js` | Scheduler decisions: wait for budget / rate limit, stop at the daily limit, exponential backoff and give-up, loud stop on auth/config, report |
 | `import-run.test.js` | Import-run report (range and continue modes) |
 | `db/20_importer.test.sql` | The importer's SQL as service_role: ON CONFLICT DO NOTHING, exact decimals, null volume, timestamp_et, job outcomes and constraints; `refresh_import_progress` incl. common dataset and browser-role refusal; duplicate facts (in-statement versions, unique key, exact `::text`, immutability) |
 | `live-check.test.js` | Live-check helpers: New York session → UTC across DST, probe list, report |

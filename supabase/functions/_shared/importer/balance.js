@@ -51,10 +51,11 @@ export function pickNext(states) {
  * @param {string} p.settledIso
  * @param {number} p.maxJobs
  * @param {object} p.store
+ * @param {object} [p.budget]  credit budget (TASK 012, budget.js)
  * @param {() => number} [p.now]
  * @param {string[]} [p.secrets]
  */
-export async function runBalanced({ runId, symbols, historyStartIso, settledIso, maxJobs, store, now = Date.now, secrets = [] }) {
+export async function runBalanced({ runId, symbols, historyStartIso, settledIso, maxJobs, store, budget = null, now = Date.now, secrets = [] }) {
   const range = defineRange(historyStartIso, settledIso);
   const states = symbols.map((s) => ({
     ...s,
@@ -68,6 +69,7 @@ export async function runBalanced({ runId, symbols, historyStartIso, settledIso,
 
   const jobs = [];
   let stoppedReason = null;
+  let retryAtUtc = null;
   while (jobs.length < maxJobs) {
     const next = pickNext(states);
     if (!next) break;
@@ -81,11 +83,19 @@ export async function runBalanced({ runId, symbols, historyStartIso, settledIso,
       store,
       maxJobs: 1,
       keep: next.keep,
+      budget,
       now,
       secrets,
     });
     const job = summary.jobs[0];
-    if (!job) break; // defensive: frontier said work was left, engine found none
+    if (!job) {
+      // Refused by the credit budget before any request (or, defensively, nothing left).
+      if (summary.stoppedReason) {
+        stoppedReason = summary.stoppedReason;
+        retryAtUtc = summary.retryAtUtc;
+      }
+      break;
+    }
     const entry = { symbol: next.symbol, ...job };
     jobs.push(entry);
     next.jobs.push(entry);
@@ -94,6 +104,7 @@ export async function runBalanced({ runId, symbols, historyStartIso, settledIso,
       next.frontier = frontierOf(next.answered, historyStartIso, settledIso);
     } else if (RUN_STOPPING_CODES.has(job.error_code)) {
       stoppedReason = job.error_code;
+      retryAtUtc = job.next_retry_at ?? null;
       break;
     } else {
       next.setAside = job.error_code ?? job.status;
@@ -117,5 +128,5 @@ export async function runBalanced({ runId, symbols, historyStartIso, settledIso,
     (t, j) => ({ received: t.received + (j.received_count ?? 0), inserted: t.inserted + (j.inserted_count ?? 0), duplicates: t.duplicates + (j.duplicate_count ?? 0) }),
     { received: 0, inserted: 0, duplicates: 0 },
   );
-  return { runId, mode: 'balanced', historyStartUtc: historyStartIso, settledUntilUtc: settledIso, jobs, totals, perSymbol, commonAnsweredThroughUtc, stoppedReason, upToDate: perSymbol.every((p) => p.complete) };
+  return { runId, mode: 'balanced', historyStartUtc: historyStartIso, settledUntilUtc: settledIso, jobs, totals, perSymbol, commonAnsweredThroughUtc, stoppedReason, retryAtUtc, upToDate: perSymbol.every((p) => p.complete) };
 }

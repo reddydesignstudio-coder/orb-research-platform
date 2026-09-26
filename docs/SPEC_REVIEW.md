@@ -30,7 +30,7 @@ Status values: `OPEN` (needs an owner decision), `NOTED` (informational, no deci
 | SR-12 | Candle that breaks both ORB High and ORB Low | TASK 017 | OPEN |
 | SR-13 | Time-exit price at 11:00 ET | TASK 019 | OPEN |
 | SR-14 | Access control for Admin / GET DATA | TASK 007, 015 | OPEN |
-| SR-15 | Twelve Data plan limits and API key (manual step) | TASK 006, 007, 012 | OPEN |
+| SR-15 | Twelve Data plan limits and API key (manual step) | TASK 006, 007, 012 | RESOLVED — Basic plan verified (D-019), key in Edge Function secrets (D-020), budget enforced (D-027) |
 | SR-16 | Where shared calculation code lives (browser + Edge Functions) | TASK 005, 013, 016 | OPEN |
 | SR-17 | No task explicitly builds the Dashboard, Data and Settings pages | TASK 015, 021 | OPEN |
 | SR-18 | GitHub Pages cannot publish from `frontend/` directly | TASK 029 | RESOLVED (D-007) |
@@ -153,7 +153,7 @@ service-role privileges. `ARCHITECTURE.md` §3 says "authentication if needed". 
 Supabase Auth for Admin actions plus RLS read-only access for research pages. Security
 architecture → needs approval before TASK 007.
 
-### SR-15 — Twelve Data plan and key  — OPEN (manual step)
+### SR-15 — Twelve Data plan and key  — RESOLVED 2026-09-26 (D-019, D-020, D-027)
 
 Rate-limit and history depth depend on the Twelve Data plan. The API key must be added by the
 owner as a Supabase Edge Function secret (never in the repo). Required before TASK 006 can be

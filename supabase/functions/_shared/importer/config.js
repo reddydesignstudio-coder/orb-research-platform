@@ -6,3 +6,9 @@
  * or stops requesting history; stored candles are never removed.
  */
 export const HISTORY_START_UTC = '2025-09-26T00:00:00.000Z';
+
+/**
+ * Credits per UTC day NOT used by the importer, left for manual checks
+ * (market-data live checks) that share the same provider key (TASK 012, D-027).
+ */
+export const CREDIT_RESERVE_PER_DAY = 20;

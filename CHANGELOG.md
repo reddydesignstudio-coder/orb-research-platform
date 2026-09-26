@@ -1,6 +1,16 @@
 # CHANGELOG
 
-## TASK 011 — Balanced Import — 2026-09-26 (awaiting live run)
+## TASK 012 — Rate Limit Handling — 2026-09-26 (awaiting scheduled runs)
+
+Added
+
+* `supabase/functions/_shared/importer/budget.js`; `CREDIT_RESERVE_PER_DAY` in `config.js`; the
+  importer checks the budget before every request (all modes) and reports `budget`, `retryAtUtc`.
+* `.github/workflows/import-scheduler.yml` + `scripts/import-scheduler.mjs` (hourly, paced).
+* Tests: `tests/importer/budget.test.js`, `tests/import-scheduler.test.js`, budget tests through
+  the importer function. Decision D-027; SR-15 resolved.
+
+## TASK 011 — Balanced Import — 2026-09-26
 
 Added
 

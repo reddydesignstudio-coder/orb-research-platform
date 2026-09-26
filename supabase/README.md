@@ -64,6 +64,12 @@ Research window and GET DATA (TASK 011, D-025, D-026): only candles inside the s
 all enabled symbols from `_shared/importer/config.js` → `HISTORY_START_UTC`, one window at a time
 for the symbol furthest behind, and reports each symbol's frontier and the common frontier.
 
+Credit budget (TASK 012, D-027): before every provider request the importer checks its own
+recorded requests — at most 7 per rolling minute and 780 per UTC day for Twelve Data Basic
+(`CREDIT_RESERVE_PER_DAY` = 20 left for manual checks) — and otherwise stops with
+`MINUTE_BUDGET_REACHED` / `DAILY_BUDGET_REACHED` and `retryAtUtc`. Every response includes
+`budget` (usage and when the next request is allowed).
+
 ## Secrets
 
 Provider API keys and the service-role key are **Supabase Edge Function secrets**. The

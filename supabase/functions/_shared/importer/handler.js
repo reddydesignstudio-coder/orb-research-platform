@@ -16,6 +16,9 @@
  *   - only minutes that ended at least SETTLE_MINUTES ago are imported.
  * Balanced (TASK 011, D-026): every enabled symbol is built from HISTORY_START_UTC;
  * each step imports one window for the symbol furthest behind (balance.js).
+ * Credit budget (TASK 012, D-027): before every provider request the importer checks
+ * its own recorded requests — per rolling minute and per UTC day — and stops with
+ * MINUTE_BUDGET_REACHED / DAILY_BUDGET_REACHED and `retryAtUtc` instead of calling.
  */
 
 import { ProviderError, defineRange, redactSecrets, requireVerified } from '../providers/mod.js';
@@ -28,7 +31,8 @@ import { runBalanced } from './balance.js';
 import { checkpointOf, mergeCoverage } from './coverage.js';
 import { researchWindow } from './session.js';
 import { createImportStore } from './store.js';
-import { HISTORY_START_UTC } from './config.js';
+import { CREDIT_RESERVE_PER_DAY, HISTORY_START_UTC } from './config.js';
+import { createBudget, limitsFrom, utcDayStart } from './budget.js';
 
 export const DEFAULT_MAX_JOBS = 4;
 /** Only minutes that ended at least this long ago are imported (D-023). */
@@ -51,6 +55,14 @@ function windowOrFailure(config) {
   } catch (e) {
     return { error: { status: 422, code: 'SESSION_INVALID', message: e.message } };
   }
+}
+
+/** Credit budget for one provider, from its verified capabilities and today's recorded requests. */
+async function budgetFor(store, provider, nowMs, now) {
+  const caps = provider.capabilities();
+  const limits = limitsFrom({ rateLimit: requireVerified(caps, 'rateLimit'), quota: requireVerified(caps, 'quota') }, CREDIT_RESERVE_PER_DAY);
+  const startsToday = await store.jobStartsSince(provider.id, new Date(utcDayStart(nowMs)).toISOString());
+  return createBudget({ startsToday, limits, now });
 }
 
 /**
@@ -133,6 +145,11 @@ export function createImporterHandler({ env, fetchImpl = globalThis.fetch, now =
           interruptedJobsClosed += await store.closeInterruptedJobs(s.config.id, staleIso, nowIso);
           s.answered = await store.answeredRanges(s.config.id, s.provider.id);
         }
+        const providerIds = new Set(ready.map((r) => r.provider.id));
+        if (providerIds.size !== 1) {
+          return failure(501, 'MULTI_PROVIDER_NOT_SUPPORTED', 'Balanced runs currently require all enabled symbols to use one provider.');
+        }
+        const budget = await budgetFor(store, ready[0].provider, nowMs, now);
         const summary = await runBalanced({
           runId: newRunId(),
           symbols: ready,
@@ -140,6 +157,7 @@ export function createImporterHandler({ env, fetchImpl = globalThis.fetch, now =
           settledIso,
           maxJobs,
           store,
+          budget,
           now,
           secrets: allSecrets,
         });
@@ -159,6 +177,7 @@ export function createImporterHandler({ env, fetchImpl = globalThis.fetch, now =
           upToDate: summary.upToDate && notReady.length === 0,
           commonScope: { symbols: ready.length, excluded: notReady.map((n) => n.symbol) },
           perSymbol: [...summary.perSymbol, ...notReady],
+          budget: budget.usage(),
           interruptedJobsClosed,
           ...(progressError ? { progressError } : {}),
         });
@@ -191,6 +210,7 @@ export function createImporterHandler({ env, fetchImpl = globalThis.fetch, now =
         range = defineRange(cp.historyStart, settledIso);
       }
 
+      const budget = await budgetFor(store, provider, nowMs, now);
       const summary = await runImport({
         runId: newRunId(),
         symbolRow: config,
@@ -201,6 +221,7 @@ export function createImporterHandler({ env, fetchImpl = globalThis.fetch, now =
         store,
         maxJobs,
         keep: w.keep,
+        budget,
         now,
         secrets: allSecrets,
       });
@@ -222,6 +243,7 @@ export function createImporterHandler({ env, fetchImpl = globalThis.fetch, now =
       Object.assign(summary, {
         mode: continuing ? 'continue' : 'range',
         researchWindow: w.keep.label,
+        budget: budget.usage(),
         interruptedJobsClosed,
         settledUntilUtc: settledIso,
         historyStartUtc: cp?.historyStart ?? null,

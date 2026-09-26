@@ -404,3 +404,29 @@ timezone and deployment decisions require owner approval (INSTRUCTIONS.md §4).
   no adapter) is listed and makes the run "not up to date" — never silently ignored.
 * Runs are limited to `maxJobs` (≤ 7 on Basic). Automatic repeated runs and pacing are TASK 012;
   the Admin button is TASK 015.
+
+## D-027 — Credit budget and scheduled importing (TASK 012)
+
+* **Date:** 2026-09-26 · **Task:** TASK 012 · **Type:** Implementation (operations)
+* **Budget in the importer** (`_shared/importer/budget.js`): before every provider request the
+  importer counts its own recorded requests (`import_jobs.started_at`, per provider):
+  at most **7 in any rolling 60 s** (Basic 8/min − 1 headroom) and **780 per UTC day** (Basic
+  800/day − `CREDIT_RESERVE_PER_DAY` 20 for manual live checks, which share the key but are not
+  recorded as jobs). Limits come from the provider's verified capabilities; the day resets at
+  00:00 UTC (verified). A refused request creates no job and costs no credit; the run stops with
+  `MINUTE_BUDGET_REACHED` / `DAILY_BUDGET_REACHED` and `retryAtUtc`. Because the count is read
+  from the database, the limit holds across separate runs. Every response reports `budget`.
+* **Scheduler** (`.github/workflows/import-scheduler.yml` + `scripts/import-scheduler.mjs`):
+  GitHub Actions, hourly at minute 23, loops balanced runs for up to 50 minutes. It waits when the
+  budget or the provider says so, backs off exponentially with jitter (5 s base, 120 s cap) on
+  outages / network / database errors and stops after 4 in a row, stops cleanly when the daily
+  budget or quota is used, and fails loudly on authentication or configuration problems (GitHub
+  then shows a failed run). It shares the `import-run` concurrency group with the manual *Import
+  run* workflow, so runs never overlap.
+* **Why GitHub Actions:** it needs no new secret (uses `SUPABASE_SECRET_KEY`), its logs and
+  reports are visible per run, and it can be paused with one click (Disable workflow).
+  Alternative considered: Supabase `pg_cron` + `pg_net`, which would need the secret key stored in
+  Supabase Vault — possible later if GitHub's schedule proves unreliable.
+* **Expected pace:** about 7 requests per minute until 780 per day → the one-year history
+  (≈ 1 575 requests) completes in about two UTC days, then each hourly run only tops up recent
+  minutes (a few requests per day).
