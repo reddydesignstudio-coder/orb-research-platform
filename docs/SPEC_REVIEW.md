@@ -25,7 +25,7 @@ Status values: `OPEN` (needs an owner decision), `NOTED` (informational, no deci
 | SR-07 | `candles.timestamp_et` for non-US markets | TASK 003 | RESOLVED (D-009) |
 | SR-08 | Initial 15 symbols not named | TASK 004 | RESOLVED (D-014) |
 | SR-09 | Sessions for forex, crypto and gold are not defined | TASK 004, 013, 016 | RESOLVED — 09:30–11:00 America/New_York for all (D-025) |
-| SR-10 | US market holiday calendar source not specified | TASK 013 | OPEN |
+| SR-10 | US market holiday calendar source not specified | TASK 013 | RESOLVED — rule-based NYSE calendar + committed special-closure list (D-028) |
 | SR-11 | Breakout trigger and entry-price convention | TASK 017, 019 | OPEN |
 | SR-12 | Candle that breaks both ORB High and ORB Low | TASK 017 | OPEN |
 | SR-13 | Time-exit price at 11:00 ET | TASK 019 | OPEN |
@@ -113,7 +113,7 @@ already carries `session_timezone`, `session_start`, `session_end`, so this is c
 but the values are a methodology decision. Required before these markets are validated or
 backtested.
 
-### SR-10 — US market holiday calendar  — OPEN
+### SR-10 — US market holiday calendar  — RESOLVED (D-028)
 
 "Weekends and market holidays are not missing data." The source of the NYSE holiday and
 early-close calendar is not specified (static maintained table vs. a library vs. a provider

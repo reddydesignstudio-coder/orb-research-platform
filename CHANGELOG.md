@@ -1,6 +1,23 @@
 # CHANGELOG
 
-## TASK 012 — Rate Limit Handling — 2026-09-26 (awaiting scheduled runs)
+## TASK 013 — Session Validator — 2026-09-26
+
+Added
+
+* `supabase/functions/_shared/sessions/`: `calendar.js` (NYSE holiday rules + special closures,
+  FX/gold weekdays except 25 Dec and 1 Jan, crypto every day), `time.js` (IANA/Intl time-zone
+  helpers, DST-safe local → UTC), `validator.js` (`sessionFor`, `sessionsBetween`,
+  `expectedMinutes`, `sessionDateOf`, `checkSessionCandles`).
+* `scripts/session-check.mjs` + `.github/workflows/session-check.yml`: read-only report of stored
+  candles against the validator (no provider call).
+* Tests: `tests/sessions/calendar.test.js`, `tests/sessions/validator.test.js`,
+  `tests/session-check.test.js`. Decision D-028; SR-10 resolved.
+
+Changed
+
+* `_shared/importer/session.js` uses the shared time helpers (behaviour unchanged).
+
+## TASK 012 — Rate Limit Handling — 2026-09-26
 
 Added
 

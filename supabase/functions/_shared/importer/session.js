@@ -11,16 +11,7 @@
  * offset, so EST/EDT changes are handled automatically (RULES.md — TIMEZONE).
  */
 
-const HHMM = /^(\d{2}):(\d{2})(?::00)?$/;
-
-function minutesOf(time) {
-  const m = HHMM.exec(String(time ?? ''));
-  if (!m) throw new TypeError(`Invalid session time "${time}" (expected HH:MM)`);
-  const h = Number(m[1]);
-  const min = Number(m[2]);
-  if (h > 24 || min > 59) throw new TypeError(`Invalid session time "${time}"`);
-  return h * 60 + min;
-}
+import { localParts, minutesOf, zoneFormatter } from '../sessions/time.js';
 
 /**
  * @param {{ session_timezone: string, session_start: string|null, session_end: string|null }} symbol
@@ -33,9 +24,8 @@ export function researchWindow(symbol) {
   const start = minutesOf(symbol.session_start);
   const end = minutesOf(symbol.session_end);
   if (!(end > start)) throw new RangeError(`Session end must be after start for ${symbol.symbol ?? 'symbol'}`);
-  let fmt;
   try {
-    fmt = new Intl.DateTimeFormat('en-US', { timeZone: tz, hourCycle: 'h23', hour: '2-digit', minute: '2-digit' });
+    zoneFormatter(tz);
   } catch {
     throw new RangeError(`Unknown session_timezone "${tz}"`);
   }
@@ -43,10 +33,7 @@ export function researchWindow(symbol) {
   return Object.freeze({
     label: `${hhmm(symbol.session_start)}–${hhmm(symbol.session_end)} ${tz}`,
     contains(isoUtc) {
-      const parts = fmt.formatToParts(new Date(isoUtc));
-      const h = Number(parts.find((p) => p.type === 'hour').value);
-      const m = Number(parts.find((p) => p.type === 'minute').value);
-      const local = h * 60 + m;
+      const local = localParts(isoUtc, tz).minutes;
       return local >= start && local < end; // end is exclusive: 11:00 is not in the window
     },
   });

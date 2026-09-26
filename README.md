@@ -80,6 +80,7 @@ Supporting engineering docs live in [`docs/`](docs/README.md).
     ├── live-check.mjs                   Provider live check (manual workflow)
     ├── import-run.mjs                   Import run (manual workflow)
     ├── import-scheduler.mjs             Import scheduler (hourly workflow)
+    ├── session-check.mjs                Session check (read-only, manual workflow)
     └── verify-foundation.sh             Structure + secret-hygiene check
 ```
 
@@ -134,6 +135,9 @@ puts every file in its correct folder, removes stray files, and starts the deplo
 * **Import scheduler** (`.github/workflows/import-scheduler.yml`, hourly): repeats balanced
   GET DATA runs for up to 50 minutes within the credit budget (≤ 7 requests/minute, ≤ 780/day),
   waits, backs off and resumes automatically. Pause it with *Disable workflow* in the Actions tab.
+* **Session check** (`.github/workflows/session-check.yml`, manual): read-only report of stored
+  candles against the session validator — complete / incomplete / no-data sessions per symbol,
+  holidays, and any candles on closed days. No provider call, no credits.
 * **Pages** (`.github/workflows/pages.yml`): after checks pass, `frontend/` is published to
   GitHub Pages on every push to `main`. One-time setup: Settings → Pages → Source:
   **GitHub Actions**.

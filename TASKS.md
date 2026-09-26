@@ -295,7 +295,7 @@ Implement quota/rate-limit handling and retry scheduling.
 Status:
 
 ```text
-IN PROGRESS — built and tested; waiting for deployment and the first scheduled runs
+COMPLETE — 2026-09-26
 ```
 
 Delivered: credit budget in the importer (`budget.js`: ≤ 7 requests per rolling minute, ≤ 780 per
@@ -308,6 +308,11 @@ Verified so far: all unit tests incl. 5 budget, 3 budget-through-the-function an
 tests; a local run of the scheduler loop against a stand-in importer (waited for the budget,
 backed off after a 502, stopped at the daily limit, exit 0).
 
+Production: deployed 2026-09-26 (all workflows green). *Import scheduler* #1 (started by hand):
+7 calls in its first ~7 minutes, each 7 requests then a ~50 s wait for the minute budget —
+49 requests, 0 provider rate-limit errors, ≈ 11 800 window candles stored. The daily-budget stop
+(780) is covered by tests and will first be reached live about two hours into today's runs.
+
 ---
 
 ## PHASE 4 — DATA QUALITY
@@ -319,8 +324,17 @@ Implement timezone-aware trading session validation.
 Status:
 
 ```text
-TODO
+IN PROGRESS
 ```
+
+Delivered: `_shared/sessions/` — market calendars (NYSE holiday rules + special closures incl.
+2025-01-09; forex/gold weekdays except 25 Dec and 1 Jan; crypto every day), DST-safe time helpers
+and the validator (session per symbol and local date: open/closed with reason, window in UTC,
+expected candles 90 or 0; candle check: present / missing / outside window / on closed days).
+Read-only *Session check* workflow. Decision D-028; SR-10 resolved.
+
+Verified so far: all unit tests; the NYSE rules reproduce the official nyse.com holiday table for
+2026–2028 exactly, and NYSE's 2025 dates. Live: *Session check* over the stored history (pending).
 
 ---
 

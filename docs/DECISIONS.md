@@ -430,3 +430,37 @@ timezone and deployment decisions require owner approval (INSTRUCTIONS.md §4).
 * **Expected pace:** about 7 requests per minute until 780 per day → the one-year history
   (≈ 1 575 requests) completes in about two UTC days, then each hourly run only tops up recent
   minutes (a few requests per day).
+
+## D-028 — Market calendars and session validation (TASK 013; resolves SR-10)
+
+* **Date:** 2026-09-26 · **Task:** TASK 013 · **Type:** Methodology (data quality)
+* **Where:** `supabase/functions/_shared/sessions/` (plain ES modules, used by Edge Functions,
+  scripts and tests alike — one implementation, SR-16 convention).
+* **Session** = one symbol's research window (`symbols.session_*`, 09:30 → 11:00
+  America/New_York, 11:00 excluded) on one **local** calendar date. Open → 90 expected candles;
+  closed → 0 (not missing data, RULES.md). The UTC window is computed from the IANA time-zone
+  database for each date, so EST/EDT needs no fixed offset.
+* **us_stock — NYSE calendar, rule-based in code:** weekends; New Year's Day (Sun → Mon, Sat →
+  not observed), MLK Day, Washington's Birthday, Good Friday, Memorial Day, Juneteenth (from
+  2022), Independence Day, Labor Day, Thanksgiving, Christmas (fixed dates: Sat → Fri,
+  Sun → Mon). Verified: reproduces nyse.com's official table for 2026–2028 exactly, and 2025.
+  **Unscheduled closures** are a committed list (`SPECIAL_CLOSURES`), currently 2025-01-09
+  (National Day of Mourning, President Carter; ICE press release). A new closure is one line
+  plus its source. Early closes (13:00 ET) are after the window → open. Years before 2022 are
+  refused rather than guessed.
+  *Why not a library or a provider endpoint:* no dependency, no credits, reviewable and
+  reproducible; the rules are stable and the special list covers the rest.
+* **forex, gold — weekdays:** the FX week runs Sunday ~17:00 ET → Friday ~17:00 ET, so the
+  09:30–11:00 ET window is inside it Monday–Friday. US holidays are not closures. **25 December
+  and 1 January are treated as closed** (global interbank closures). *Assumption to confirm with
+  the data:* if the provider does return candles on those days, the Session check reports them
+  as "candles on closed days" (never dropped) and this rule is revisited.
+* **crypto — every day.**
+* **Candle check** (`checkSessionCandles`): present / missing expected minutes, timestamps
+  outside the window or not on a whole minute, candles on closed days
+  (`unexpected_candles` — a validator status; TASK 014 maps it onto the `data_quality` statuses).
+  Nothing is dropped or fabricated. OHLC validity, duplicates and the
+  `data_quality` rows are TASK 014.
+* **Session check workflow** (manual, read-only): runs the validator over stored candles; a
+  session whose window has not yet been answered by a succeeded import job is "not yet
+  imported", not missing.
