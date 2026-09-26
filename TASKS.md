@@ -211,7 +211,7 @@ Implement resumable imports.
 Status:
 
 ```text
-IN PROGRESS — built and tested; waiting for deployment and a live resume
+COMPLETE — 2026-09-26
 ```
 
 Delivered: answered-coverage checkpoint (`_shared/importer/coverage.js`), skip of answered
@@ -219,8 +219,16 @@ windows, `continue` mode, interrupted-job recovery, settled-minutes rule, databa
 `refresh_import_progress` (migration `20260925190000`), updated *Import run* workflow.
 Decision D-023.
 
-Verified so far: 163/163 unit tests, all database tests incl. 6 new progress checks, Supabase
-CLI rehearsal of the incremental migration (dry run + apply).
+Verified: 164/164 unit tests, all database tests incl. 6 new progress checks, Supabase CLI
+rehearsal of the incremental migration (dry run + apply). Deployed: migration applied by
+*Deploy database migrations*, functions by *Deploy Edge Functions* (2026-09-26).
+
+Production: *Import run* #2, SPY, mode `continue` → run `75119828…`: the 90 answered minutes of
+24 Sep were skipped; one window 2026-09-24 15:00Z → 2026-09-26 07:06Z (settled limit) returned
+690 candles (24 Sep 11:00–16:00 ET = 300 + 25 Sep 09:30–16:00 ET = 390), all inserted.
+Checkpoint 2026-09-26 07:06Z although the last candle is 2026-09-25 19:59Z (15:59 ET): the
+closed-market hours are answered, not missing. import_progress: 780 candles, 24 Sep 13:30Z →
+25 Sep 19:59Z; common dataset null (other enabled symbols have no data yet).
 
 ---
 
@@ -231,8 +239,16 @@ Implement database/application duplicate prevention.
 Status:
 
 ```text
-TODO
+IN PROGRESS — built and tested; waiting for deployment and a live import
 ```
+
+Delivered: `_shared/importer/dedupe.js` (identical repeats stored once; conflicting versions
+rejected; stored minutes compared, provider revisions reported, never written), store returns
+inserted minutes and reads stored values as exact text. Decision D-024.
+
+Verified so far: 172/172 unit tests (8 new dedupe tests + 1 through the importer function), 5
+new database checks (incl. proof that PostgreSQL alone would keep a conflicting version
+silently), and the live Supabase API accepts the read-back query.
 
 ---
 

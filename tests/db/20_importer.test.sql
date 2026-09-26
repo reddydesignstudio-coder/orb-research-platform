@@ -124,3 +124,43 @@ select t.expect_error('progress: signed-in users cannot run the refresh either',
   $q$select public.refresh_import_progress(1, 'twelve_data', '1min')$q$, '42501');
 reset role;
 \echo 'PROGRESS DATABASE TESTS PASSED'
+
+-- ====================================================================
+-- TASK 010 — duplicate prevention facts the importer relies on
+-- ====================================================================
+set role service_role;
+
+-- Why the importer removes in-response duplicates itself: with two versions of the
+-- same minute in ONE statement, ON CONFLICT DO NOTHING silently keeps the first.
+create temp table t_dup (n int);
+with ins as (
+  insert into public.candles (symbol_id, timestamp_utc, open, high, low, close, provider)
+  select s.id, v.ts, v.o, v.o, v.o, v.o, 'twelve_data'
+  from public.symbols s, (values ('2026-09-24 14:00Z'::timestamptz, 10::numeric), ('2026-09-24 14:00Z', 11)) v(ts, o)
+  where s.symbol = 'SPY'
+  on conflict (symbol_id, interval, timestamp_utc) do nothing
+  returning id
+)
+insert into t_dup select count(*) from ins;
+select t.check('dedup: one statement with two versions of a minute stores exactly one (the database picks silently — hence the application check)',
+  (select n from t_dup) = 1);
+
+select t.check('dedup: the unique key makes a second copy of a stored minute impossible',
+  (select count(*) from public.candles c join public.symbols s on s.id = c.symbol_id
+   where s.symbol = 'SPY' and c.timestamp_utc = '2026-09-24 14:00Z') = 1);
+
+-- Exact comparison needs the stored text form of the price (open::text in the lookup).
+select t.check('dedup: numeric::text returns the stored decimal exactly',
+  (select open::text from public.candles c join public.symbols s on s.id = c.symbol_id
+   where s.symbol = 'SPY' and c.timestamp_utc = '2026-09-24 13:30Z') = '764.065002');
+
+select t.expect_error('dedup: a direct duplicate insert without ON CONFLICT is rejected',
+  $q$insert into public.candles (symbol_id, timestamp_utc, open, high, low, close, provider)
+     select id, '2026-09-24 14:00Z', 12, 12, 12, 12, 'twelve_data' from public.symbols where symbol = 'SPY'$q$,
+  '23505');
+
+select t.expect_error('dedup: the stored candle cannot be overwritten (immutability)',
+  $q$update public.candles set high = 99 where timestamp_utc = '2026-09-24 14:00Z'$q$,
+  '42501');
+reset role;
+\echo 'DEDUP DATABASE TESTS PASSED'

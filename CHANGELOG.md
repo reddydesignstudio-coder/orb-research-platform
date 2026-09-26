@@ -1,6 +1,15 @@
 # CHANGELOG
 
-## TASK 009 — Checkpointing — 2026-09-25 (awaiting live resume)
+## TASK 010 — Deduplication — 2026-09-26 (awaiting live import)
+
+Added
+
+* `supabase/functions/_shared/importer/dedupe.js`; the engine deduplicates each response,
+  compares minutes already stored and records `CONFLICTING_DUPLICATE` / `REVISED_BY_PROVIDER`.
+* `store.insertCandles` returns the inserted minutes; `store.storedCandles` reads exact values.
+* Tests: `tests/importer/dedupe.test.js`, a handler test, 5 database checks. Decision D-024.
+
+## TASK 009 — Checkpointing — 2026-09-26
 
 Added
 

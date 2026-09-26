@@ -161,6 +161,21 @@ test('checkpoint semantics follow answered ranges, not the last candle (a weeken
   assert.equal(r.json.checkpointUtc, '2026-09-21T13:00:00.000Z', 'weekend counted as answered');
 });
 
+// ------------------------------------------------------------------ TASK 010: duplicates through the real store
+test('candles stored by an interrupted run are counted as duplicates; a revised minute is reported, not overwritten', async () => {
+  const stored = (t, high) => ({ symbol_id: 1, timestamp_utc: t, open: '100.10', high, low: '100.00', close: '100.40', volume: '1000', provider: 'twelve_data', interval: '1min' });
+  const backend = fakeBackend({
+    tdRows: { '2026-09-24T13:30:00': bars('2026-09-24T13:30:00Z', 3) }, // high 100.50 for every bar
+    candles: [stored('2026-09-24T13:30:00.000Z', '100.5'), stored('2026-09-24T13:31:00.000Z', '100.70')],
+  });
+  const r = await read(await handler(backend)(post({ symbol: 'SPY', startUtc: '2026-09-24T13:30:00Z', endUtc: '2026-09-24T13:33:00Z' })));
+  const job = r.json.jobs[0];
+  assert.deepEqual([job.status, job.received_count, job.inserted_count, job.duplicate_count, job.error_code], ['succeeded', 3, 1, 2, 'REVISED_BY_PROVIDER']);
+  assert.match(job.error_message, /1 stored candle\(s\) differ.*2026-09-24T13:31:00.000Z/);
+  assert.equal(backend.db.candles.find((c) => c.timestamp_utc === '2026-09-24T13:31:00.000Z').high, '100.70', 'stored value kept');
+  assert.equal(backend.db.candles.length, 3);
+});
+
 // ------------------------------------------------------------------ refusals
 test('refusals: no secret key, unsettled minutes, maxJobs above plan limit, unknown symbol, mixed modes', async () => {
   const backend = fakeBackend();

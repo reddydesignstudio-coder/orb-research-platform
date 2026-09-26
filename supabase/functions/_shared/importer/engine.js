@@ -6,15 +6,18 @@
  *      the missing parts are split into windows no larger than the provider's
  *      VERIFIED safe size, so no response can be truncated unnoticed (§6.2);
  *   2. windows are processed oldest first, one import_jobs row per window;
- *   3. each job: fetch → validate → store (duplicates skipped by the unique
- *      key) → record counts, status and errors;
+ *   3. each job: fetch → validate → deduplicate (TASK 010: repeats inside the
+ *      response, conflicting versions, minutes already stored, provider
+ *      revisions — see dedupe.js) → store → record counts, status and errors;
  *   4. the run STOPS at the first window that is not definitively answered
  *      (error, rate limit, incomplete range), so no range is ever skipped.
  *      `nextStartUtc` says where the next run must resume.
  *
  * Job status (DATABASE.md — import_jobs.status):
  *   succeeded     the window was definitively answered and its candles stored
- *                 (it may legitimately contain no candles: weekend, holiday…)
+ *                 (it may legitimately contain no candles: weekend, holiday…).
+ *                 error_code may carry a WARNING: CONFLICTING_DUPLICATE or
+ *                 REVISED_BY_PROVIDER, with details in error_message
  *   partial       the provider answered, but completeness could not be
  *                 established; whatever arrived is stored, the window is NOT done
  *   rate_limited  rate limit / quota; next_retry_at = when to try again
@@ -27,6 +30,7 @@
 
 import { ProviderError, ProviderErrorCode, assessCompleteness, defineRange, defineRequest, redactSecrets, requireVerified } from '../providers/mod.js';
 import { validateCandles } from './validate.js';
+import { dedupeResponse, revisedMinutes } from './dedupe.js';
 import { minutesIn, missingRanges } from './coverage.js';
 
 const MINUTE_MS = 60_000;
@@ -54,11 +58,17 @@ const countBy = (items, key) => {
   return Object.entries(out).map(([k, v]) => `${k} ×${v}`).join(', ');
 };
 
-/** Human-readable facts recorded with a job (the provider's indication, rejected rows). */
-function jobNotes(result, invalid) {
+/**
+ * Facts recorded with a succeeded job: rows not stored and why, stored candles the
+ * provider now reports differently, and the provider's own indication.
+ */
+function jobNotes(result, notStored, revised) {
   const notes = [];
-  const rejected = [...result.rejected, ...invalid];
+  const rejected = [...result.rejected, ...notStored];
   if (rejected.length) notes.push(`${rejected.length} row(s) not stored: ${countBy(rejected, 'reason')}`);
+  if (revised.length) {
+    notes.push(`${revised.length} stored candle(s) differ from the provider's current values; stored values kept (immutable): ${revised.slice(0, 5).join(', ')}${revised.length > 5 ? ', …' : ''}`);
+  }
   for (const n of result.providerNotes) if (!/^api-credits-/.test(n)) notes.push(n);
   return notes.length ? notes.join(' · ').slice(0, 2000) : null;
 }
@@ -110,16 +120,22 @@ export async function runImport({ runId, symbolRow, config, provider, range, ans
     try {
       const result = await provider.fetchCandles(defineRequest({ symbol: resolved, range: window }));
       const { valid, invalid } = validateCandles(result.candles);
-      const inserted = await store.insertCandles(symbolRow.id, valid);
+      const { unique, repeats, conflicting } = dedupeResponse(valid);
+      const insertedMinutes = new Set(await store.insertCandles(symbolRow.id, unique));
+      const alreadyStored = unique.filter((c) => !insertedMinutes.has(c.timestampUtc));
+      const revised = alreadyStored.length
+        ? revisedMinutes(alreadyStored, await store.storedCandles(symbolRow.id, alreadyStored.map((c) => c.timestampUtc)))
+        : [];
       const completeness = assessCompleteness(result, caps);
       const answered = completeness.state === 'answered';
+      const warning = conflicting.length ? 'CONFLICTING_DUPLICATE' : revised.length ? 'REVISED_BY_PROVIDER' : null;
       patch = {
         status: answered ? 'succeeded' : 'partial',
         received_count: result.receivedCount,
-        inserted_count: inserted,
-        duplicate_count: valid.length - inserted,
-        error_code: answered ? null : 'RANGE_NOT_COMPLETE',
-        error_message: answered ? jobNotes(result, invalid) : completeness.reason,
+        inserted_count: insertedMinutes.size,
+        duplicate_count: repeats + alreadyStored.length,
+        error_code: answered ? warning : 'RANGE_NOT_COMPLETE',
+        error_message: answered ? jobNotes(result, [...invalid, ...conflicting], revised) : completeness.reason,
       };
     } catch (e) {
       const pe = e instanceof ProviderError ? e : null;

@@ -339,3 +339,29 @@ timezone and deployment decisions require owner approval (INSTRUCTIONS.md §4).
   candle across enabled symbols (null until every enabled symbol has candles). Recomputing, not
   incrementing, means it cannot drift. Server-side only (execute revoked from browser roles).
   Migration `20260925190000_import_progress_refresh.sql` is additive (one function).
+
+## D-024 — Duplicate handling (TASK 010)
+
+* **Date:** 2026-09-26 · **Task:** TASK 010 · **Type:** Implementation
+* **Database layer (unchanged, TASK 003):** unique key `(symbol_id, interval, timestamp_utc)`;
+  candles are immutable (update/delete blocked). A stored minute can never exist twice or be
+  overwritten.
+* **Application layer (new, `_shared/importer/dedupe.js`)**, applied to every response before
+  storage:
+  1. the same minute repeated in one response with identical values → stored once, repeats
+     counted in `duplicate_count`;
+  2. the same minute repeated with **different** values → no version is stored and every row is
+     reported as `CONFLICTING_DUPLICATE`. Verified on PostgreSQL: a single
+     `INSERT … ON CONFLICT DO NOTHING` with two versions silently keeps the first — choosing
+     would be a guess, so the importer refuses to;
+  3. minutes already stored → skipped by the unique key and counted as duplicates; their stored
+     values are read back as exact text (`numeric::text`) and compared. If the provider now sends
+     different values the stored candle is **kept** (immutable) and the job records
+     `REVISED_BY_PROVIDER` with the minutes in `error_message`.
+* **Recording:** `duplicate_count` = identical repeats + minutes already stored.
+  `CONFLICTING_DUPLICATE` / `REVISED_BY_PROVIDER` appear as warning codes in `error_code` on a
+  `succeeded` job (status stays `succeeded`: the window was answered). The minute of a conflict
+  stays missing and will show as missing in data quality (TASK 014) — never filled by a guess.
+* Values are compared as exact decimals ("10.50" = "10.5"); an absent volume never equals 0.
+* Checked live: Supabase's API accepts the read-back query (`in.(…)` minute list with
+  `::text` casts).

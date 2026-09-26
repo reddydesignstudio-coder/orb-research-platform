@@ -54,6 +54,10 @@ true }` resumes from the symbol's checkpoint up to the latest settled minute (30
 jobs left `running` by an interrupted run are closed as `INTERRUPTED` and redone; after storing
 candles `refresh_import_progress` updates `import_progress`.
 
+Duplicates (TASK 010, D-024): identical repeats are stored once and counted; two different
+versions of one minute are both rejected (`CONFLICTING_DUPLICATE`); minutes already stored are
+skipped and compared — a provider revision is reported (`REVISED_BY_PROVIDER`), never written.
+
 ## Secrets
 
 Provider API keys and the service-role key are **Supabase Edge Function secrets**. The

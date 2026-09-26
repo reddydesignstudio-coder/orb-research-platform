@@ -39,9 +39,10 @@ function matches(row, params) {
  * @param {Record<string, object[]>} [o.tdRows]     Twelve Data values keyed by start_date sent
  * @param {Record<string, object>} [o.tdErrors]     Twelve Data error bodies keyed by start_date
  * @param {object[]} [o.jobs]                       pre-existing import_jobs rows
+ * @param {object[]} [o.candles]                    pre-existing candles rows
  */
-export function fakeBackend({ tdRows = {}, tdErrors = {}, jobs = [] } = {}) {
-  const db = { jobs: jobs.map((j, i) => ({ id: i + 1, received_count: 0, inserted_count: 0, duplicate_count: 0, ...j })), candles: [], progress: [], tdCalls: [] };
+export function fakeBackend({ tdRows = {}, tdErrors = {}, jobs = [], candles = [] } = {}) {
+  const db = { jobs: jobs.map((j, i) => ({ id: i + 1, received_count: 0, inserted_count: 0, duplicate_count: 0, ...j })), candles: candles.map((c, i) => ({ id: i + 1, ...c })), progress: [], tdCalls: [] };
 
   function refreshProgress({ p_symbol_id, p_provider }) {
     const mine = db.candles.filter((c) => c.symbol_id === p_symbol_id && c.provider === p_provider).map((c) => c.timestamp_utc).sort();
@@ -92,16 +93,24 @@ export function fakeBackend({ tdRows = {}, tdErrors = {}, jobs = [] } = {}) {
     if (table === 'candles' && method === 'POST') {
       assert.equal(params.on_conflict, 'symbol_id,interval,timestamp_utc');
       assert.match(init.headers.prefer, /resolution=ignore-duplicates/);
+      assert.equal(params.select, 'timestamp_utc');
       const inserted = [];
       for (const r of body) {
         const dup = db.candles.some((c) => c.symbol_id === r.symbol_id && c.interval === r.interval && c.timestamp_utc === r.timestamp_utc);
         if (!dup) {
           const row = { id: db.candles.length + 1, ...r };
           db.candles.push(row);
-          inserted.push({ id: row.id });
+          // PostgREST renders timestamptz with an offset, not "Z".
+          inserted.push({ timestamp_utc: r.timestamp_utc.replace('.000Z', '+00:00') });
         }
       }
       return Response.json(inserted, { status: 201 });
+    }
+    if (table === 'candles' && method === 'GET') {
+      assert.equal(params.select, 'timestamp_utc,open::text,high::text,low::text,close::text,volume::text');
+      const wanted = params.timestamp_utc.replace(/^in\.\(/, '').replace(/\)$/, '').split(',').map((x) => x.replace(/"/g, ''));
+      const rows = db.candles.filter((c) => String(c.symbol_id) === params.symbol_id.replace('eq.', '') && wanted.includes(c.timestamp_utc));
+      return Response.json(rows.map((c) => ({ timestamp_utc: c.timestamp_utc.replace('.000Z', '+00:00'), open: c.open, high: c.high, low: c.low, close: c.close, volume: c.volume })));
     }
     if (table === 'rpc/refresh_import_progress' && method === 'POST') {
       refreshProgress(body);

@@ -243,3 +243,6 @@ The `relationships(...)` index in INDEXES is created on `orb_relationships`.
   enabled symbols; null until all have candles). Server-side only (D-023).
 * The importer's resume point comes from answered `import_jobs` windows, not from
   `import_progress.last_timestamp_utc` (PROVIDERS.md §6.1, D-023).
+* Duplicates (D-024): besides the unique key, the importer stores one version per minute only
+  when a response is consistent, never overwrites a stored minute, and records
+  `CONFLICTING_DUPLICATE` / `REVISED_BY_PROVIDER` warnings on the import job.

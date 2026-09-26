@@ -5,6 +5,7 @@
 
 const INSERT_CHUNK = 1000;
 const PAGE = 1000; // PostgREST default max rows
+const LOOKUP_CHUNK = 100; // minutes per lookup request (keeps URLs short)
 
 /** @param {ReturnType<import('../server/rest.js').createRestClient>} rest */
 export function createImportStore(rest) {
@@ -74,12 +75,14 @@ export function createImportStore(rest) {
     },
 
     /**
-     * Insert candles; rows that already exist are skipped by the unique key
-     * (symbol_id, interval, timestamp_utc) and never stored twice (RULES.md — DATA 7).
-     * @returns {Promise<number>} rows actually inserted
+     * Insert candles; rows whose minute is already stored are skipped by the unique
+     * key (symbol_id, interval, timestamp_utc) and never stored twice (RULES.md — DATA 7).
+     * Callers pass candles with unique minutes (dedupeResponse), so the database never
+     * has to choose between two versions of one minute.
+     * @returns {Promise<string[]>} minutes (ISO UTC) actually inserted
      */
     async insertCandles(symbolId, candles) {
-      let inserted = 0;
+      const inserted = [];
       for (let i = 0; i < candles.length; i += INSERT_CHUNK) {
         const rows = candles.slice(i, i + INSERT_CHUNK).map((c) => ({
           symbol_id: symbolId,
@@ -93,12 +96,34 @@ export function createImportStore(rest) {
           interval: c.interval,
         }));
         const out = await rest.insert('candles', rows, {
-          params: { on_conflict: 'symbol_id,interval,timestamp_utc', select: 'id' },
+          params: { on_conflict: 'symbol_id,interval,timestamp_utc', select: 'timestamp_utc' },
           prefer: 'return=representation,resolution=ignore-duplicates',
         });
-        inserted += Array.isArray(out) ? out.length : 0;
+        for (const r of Array.isArray(out) ? out : []) inserted.push(new Date(r.timestamp_utc).toISOString());
       }
       return inserted;
+    },
+
+    /**
+     * Stored candles for the given minutes, with prices as exact text (no float
+     * conversion), for comparing with what the provider sends now.
+     * @returns {Promise<object[]>} { timestampUtc, open, high, low, close, volume }
+     */
+    async storedCandles(symbolId, minutes) {
+      const out = [];
+      for (let i = 0; i < minutes.length; i += LOOKUP_CHUNK) {
+        const list = minutes.slice(i, i + LOOKUP_CHUNK).map((m) => `"${m}"`).join(',');
+        const rows = await rest.select('candles', {
+          symbol_id: `eq.${symbolId}`,
+          interval: 'eq.1min',
+          timestamp_utc: `in.(${list})`,
+          select: 'timestamp_utc,open::text,high::text,low::text,close::text,volume::text',
+        });
+        for (const r of rows) {
+          out.push({ timestampUtc: new Date(r.timestamp_utc).toISOString(), open: r.open, high: r.high, low: r.low, close: r.close, volume: r.volume ?? null });
+        }
+      }
+      return out;
     },
   });
 }

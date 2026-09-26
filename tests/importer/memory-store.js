@@ -35,15 +35,21 @@ export function createMemoryStore({ failInsert = null } = {}) {
     },
     async insertCandles(symbolId, list) {
       if (failInsert) throw failInsert;
-      let inserted = 0;
+      const inserted = [];
       for (const c of list) {
         const key = `${symbolId}|${c.interval}|${c.timestampUtc}`;
         if (!candles.has(key)) {
           candles.set(key, Object.freeze({ ...c, symbolId }));
-          inserted++;
+          inserted.push(c.timestampUtc);
         }
       }
       return inserted;
+    },
+    async storedCandles(symbolId, minutes) {
+      return minutes
+        .map((m) => candles.get(`${symbolId}|1min|${m}`))
+        .filter(Boolean)
+        .map((c) => ({ timestampUtc: c.timestampUtc, open: c.open, high: c.high, low: c.low, close: c.close, volume: c.volume }));
     },
   };
 }
