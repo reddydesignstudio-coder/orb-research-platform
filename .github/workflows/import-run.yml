@@ -1,8 +1,11 @@
 # Import run (TASK 008, 009). Manual only: Actions → Import run → Run workflow.
 #
-# Starts ONE import run for one symbol through the deployed importer function:
-#   mode "range"     import start_utc → end_utc (already answered parts skipped)
-#   mode "continue"  resume from the symbol's checkpoint up to the latest settled minute
+# Starts ONE import run through the deployed importer function:
+#   mode "balanced"  GET DATA: all enabled symbols from the history start, the
+#                    symbol furthest behind first (symbol and dates ignored)
+#   mode "range"     one symbol, start_utc → end_utc (already answered parts skipped)
+#   mode "continue"  one symbol, resume from its checkpoint up to the latest settled minute
+# Only candles inside each symbol's research window (09:30–11:00 New York) are stored.
 # Candles are stored; every provider request is recorded in import_jobs under a
 # new run id. Each job uses 1 Twelve Data credit.
 # The Admin "GET DATA" button replaces this in TASK 015.
@@ -14,15 +17,15 @@ on:
   workflow_dispatch:
     inputs:
       symbol:
-        description: 'Symbol exactly as in the symbols table (e.g. SPY, EUR/USD)'
-        required: true
+        description: 'Symbol exactly as in the symbols table (e.g. SPY, EUR/USD) — range / continue'
+        required: false
         default: 'SPY'
       mode:
-        description: 'range = the dates below; continue = resume from the checkpoint (dates ignored)'
+        description: 'balanced = all symbols (GET DATA); range = the dates below; continue = one symbol from its checkpoint'
         required: true
         type: choice
-        options: [range, continue]
-        default: range
+        options: [balanced, range, continue]
+        default: balanced
       start_utc:
         description: 'Range start, UTC (e.g. 2026-09-24T13:30:00Z) — range mode'
         required: false
